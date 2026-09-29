@@ -1,0 +1,25 @@
+name: stockflow-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: stockflow-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${STOCKFLOW_DB_NAME:?Set STOCKFLOW_DB_NAME in .env.docker}
+      POSTGRES_USER: ${STOCKFLOW_DB_USER:?Set STOCKFLOW_DB_USER in .env.docker}
+      POSTGRES_PASSWORD: ${STOCKFLOW_DB_PASSWORD:?Set STOCKFLOW_DB_PASSWORD in .env.docker}
+    ports:
+      - "127.0.0.1:${STOCKFLOW_DB_PORT:-54329}:5432"
+    volumes:
+      - stockflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  stockflow_postgres_data:
+    name: stockflow_postgres_data

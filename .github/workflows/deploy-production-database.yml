@@ -1,0 +1,37 @@
+name: Deploy production database migrations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockflow-production-database
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Apply reviewed Prisma migrations
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - name: Check out reviewed source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema
+        run: npm run prisma:validate
+
+      - name: Apply committed migrations
+        run: npm run db:migrate:deploy

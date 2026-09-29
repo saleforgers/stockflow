@@ -1,0 +1,801 @@
+// StockFlow V1 schema.
+// Phase 1A foundation: migration creation awaits a configured PostgreSQL database.
+// SQL-only checks and partial indexes are specified in docs/database-design.md.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  STAFF
+}
+
+enum DocumentStatus {
+  DRAFT
+  POSTED
+  VOID
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+}
+
+enum MovementDirection {
+  IN
+  OUT
+}
+
+enum StockMovementType {
+  OPENING_STOCK
+  PURCHASE
+  SALE
+  SALE_RETURN
+  PURCHASE_RETURN
+  STOCK_ADJUSTMENT
+  DAMAGED
+  LOST
+  CORRECTION
+  OTHER
+}
+
+enum InventoryLotOrigin {
+  PURCHASE
+  OPENING
+  ADJUSTMENT
+}
+
+enum InventoryLotStatus {
+  OPEN
+  DEPLETED
+  CLOSED
+}
+
+enum BalanceEffect {
+  INCREASE
+  DECREASE
+}
+
+enum SupplierLedgerEntryType {
+  PURCHASE
+  PAYMENT
+  PURCHASE_RETURN
+  REFUND
+  ADJUSTMENT_INCREASE
+  ADJUSTMENT_DECREASE
+  REVERSAL
+}
+
+enum CustomerLedgerEntryType {
+  SALE
+  PAYMENT
+  SALE_RETURN
+  REFUND
+  ADJUSTMENT_INCREASE
+  ADJUSTMENT_DECREASE
+  REVERSAL
+}
+
+enum PaymentKind {
+  SUPPLIER_PAYMENT
+  SUPPLIER_REFUND
+  CUSTOMER_RECEIPT
+  CUSTOMER_REFUND
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(STAFF)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+
+  purchasesCreated        Purchase[]            @relation("PurchaseCreatedBy")
+  purchaseLotsCreated     PurchaseLot[]         @relation("PurchaseLotCreatedBy")
+  purchaseReturnsCreated  PurchaseReturn[]      @relation("PurchaseReturnCreatedBy")
+  salesInvoicesCreated    SalesInvoice[]        @relation("SalesInvoiceCreatedBy")
+  saleReturnsCreated      SaleReturn[]          @relation("SaleReturnCreatedBy")
+  stockMovementsCreated   StockMovement[]       @relation("StockMovementCreatedBy")
+  stockAdjustmentsCreated StockAdjustment[]     @relation("StockAdjustmentCreatedBy")
+  paymentsCreated         Payment[]             @relation("PaymentCreatedBy")
+  supplierLedgerCreated   SupplierLedgerEntry[] @relation("SupplierLedgerCreatedBy")
+  customerLedgerCreated   CustomerLedgerEntry[] @relation("CustomerLedgerCreatedBy")
+  expensesCreated         Expense[]             @relation("ExpenseCreatedBy")
+}
+
+model Category {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String   @unique
+  description String?
+  parentId    String?  @db.Uuid
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([parentId])
+  @@index([isActive, name])
+}
+
+model UnitOfMeasure {
+  id           String   @id @default(uuid()) @db.Uuid
+  code         String   @unique
+  name         String   @unique
+  decimalScale Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+
+  products Product[]
+}
+
+model InventoryLocation {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  name      String
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  purchases       Purchase[]
+  inventoryLots   InventoryLot[]
+  stockMovements  StockMovement[]
+  salesInvoices   SalesInvoice[]
+  purchaseReturns PurchaseReturn[]
+  saleReturns     SaleReturn[]
+  adjustmentLines StockAdjustmentLine[]
+
+  @@index([isActive])
+}
+
+model Supplier {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+
+  preferredForProducts Product[]             @relation("PreferredSupplier")
+  purchases            Purchase[]
+  purchaseReturns      PurchaseReturn[]
+  payments             Payment[]
+  ledgerEntries        SupplierLedgerEntry[]
+  expenses             Expense[]
+
+  @@index([name])
+  @@index([phone])
+  @@index([isActive, name])
+}
+
+model Customer {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  notes     String?
+  isWalkIn  Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  salesInvoices SalesInvoice[]
+  payments      Payment[]
+  ledgerEntries CustomerLedgerEntry[]
+
+  @@index([name])
+  @@index([phone])
+  @@index([isActive, name])
+}
+
+model Product {
+  id                   String   @id @default(uuid()) @db.Uuid
+  sku                  String   @unique
+  name                 String
+  description          String?
+  categoryId           String   @db.Uuid
+  inventoryUnitId      String   @db.Uuid
+  preferredSupplierId  String?  @db.Uuid
+  defaultPurchasePrice Decimal? @db.Decimal(18, 4)
+  defaultSellingPrice  Decimal? @db.Decimal(18, 4)
+  lowStockThreshold    Decimal  @default(0) @db.Decimal(18, 4)
+  specifications       Json     @default("{}")
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @db.Timestamptz(6)
+
+  category            Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  inventoryUnit       UnitOfMeasure         @relation(fields: [inventoryUnitId], references: [id], onDelete: Restrict)
+  preferredSupplier   Supplier?             @relation("PreferredSupplier", fields: [preferredSupplierId], references: [id], onDelete: SetNull)
+  purchaseLines       PurchaseLine[]
+  inventoryLots       InventoryLot[]
+  stockMovements      StockMovement[]
+  salesInvoiceLines   SalesInvoiceLine[]
+  purchaseReturnLines PurchaseReturnLine[]
+  saleReturnLines     SaleReturnLine[]
+  adjustmentLines     StockAdjustmentLine[]
+
+  @@index([categoryId, isActive])
+  @@index([preferredSupplierId])
+  @@index([name])
+}
+
+model Purchase {
+  id                      String         @id @default(uuid()) @db.Uuid
+  purchaseNumber          String         @unique
+  supplierId              String         @db.Uuid
+  locationId              String         @db.Uuid
+  purchaseDate            DateTime       @db.Date
+  supplierInvoiceRef      String?
+  supplierNameSnapshot    String
+  supplierPhoneSnapshot   String?
+  supplierAddressSnapshot String?
+  status                  DocumentStatus @default(DRAFT)
+  paymentStatus           PaymentStatus  @default(UNPAID)
+  currencyCode            String         @default("PKR") @db.Char(3)
+  subtotal                Decimal        @db.Decimal(18, 2)
+  additionalCharges       Decimal        @default(0) @db.Decimal(18, 2)
+  totalAmount             Decimal        @db.Decimal(18, 2)
+  amountPaidCached        Decimal        @default(0) @db.Decimal(18, 2)
+  notes                   String?
+  createdById             String         @db.Uuid
+  postedAt                DateTime?      @db.Timestamptz(6)
+  voidedAt                DateTime?      @db.Timestamptz(6)
+  createdAt               DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime       @updatedAt @db.Timestamptz(6)
+
+  supplier           Supplier                    @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  location           InventoryLocation           @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  createdBy          User                        @relation("PurchaseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  lots               PurchaseLot[]
+  lines              PurchaseLine[]
+  returns            PurchaseReturn[]
+  paymentAllocations SupplierPaymentAllocation[]
+  ledgerEntry        SupplierLedgerEntry?
+
+  @@index([supplierId, purchaseDate])
+  @@index([status, purchaseDate])
+  @@index([locationId, purchaseDate])
+}
+
+model PurchaseLot {
+  id                   String   @id @default(uuid()) @db.Uuid
+  lotNumber            String   @unique
+  supplierLotReference String?
+  purchaseId           String   @db.Uuid
+  receivedAt           DateTime @db.Timestamptz(6)
+  notes                String?
+  createdById          String   @db.Uuid
+  createdAt            DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @db.Timestamptz(6)
+
+  purchase      Purchase       @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  createdBy     User           @relation("PurchaseLotCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  lines         PurchaseLine[]
+  inventoryLots InventoryLot[]
+  expenses      Expense[]
+
+  @@index([purchaseId])
+}
+
+model PurchaseLine {
+  id                  String   @id @default(uuid()) @db.Uuid
+  purchaseId          String   @db.Uuid
+  purchaseLotId       String   @db.Uuid
+  productId           String   @db.Uuid
+  productNameSnapshot String
+  skuSnapshot         String
+  uomCodeSnapshot     String
+  quantity            Decimal  @db.Decimal(18, 4)
+  unitCost            Decimal  @db.Decimal(18, 4)
+  lineTotal           Decimal  @db.Decimal(18, 2)
+  notes               String?
+  createdAt           DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(6)
+
+  purchase            Purchase             @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  purchaseLot         PurchaseLot          @relation(fields: [purchaseLotId], references: [id], onDelete: Restrict)
+  product             Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  inventoryLot        InventoryLot?
+  purchaseReturnLines PurchaseReturnLine[]
+  stockMovement       StockMovement?
+
+  @@index([purchaseId])
+  @@index([purchaseLotId, productId])
+  @@index([productId])
+}
+
+model InventoryLot {
+  id                String             @id @default(uuid()) @db.Uuid
+  origin            InventoryLotOrigin
+  status            InventoryLotStatus @default(OPEN)
+  productId         String             @db.Uuid
+  locationId        String             @db.Uuid
+  purchaseLotId     String?            @db.Uuid
+  purchaseLineId    String?            @unique @db.Uuid
+  originalQuantity  Decimal            @db.Decimal(18, 4)
+  availableQuantity Decimal            @db.Decimal(18, 4)
+  unitCost          Decimal            @db.Decimal(18, 4)
+  receivedAt        DateTime           @db.Timestamptz(6)
+  closedAt          DateTime?          @db.Timestamptz(6)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
+
+  product               Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  location              InventoryLocation      @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  purchaseLot           PurchaseLot?           @relation(fields: [purchaseLotId], references: [id], onDelete: Restrict)
+  purchaseLine          PurchaseLine?          @relation(fields: [purchaseLineId], references: [id], onDelete: Restrict)
+  stockMovements        StockMovement[]
+  saleAllocations       SaleLotAllocation[]
+  saleReturnAllocations SaleReturnAllocation[]
+  purchaseReturnLines   PurchaseReturnLine[]
+  adjustmentLines       StockAdjustmentLine[]
+
+  @@index([productId, locationId, status, receivedAt])
+  @@index([productId, locationId, availableQuantity, receivedAt])
+  @@index([purchaseLotId])
+}
+
+model SalesInvoice {
+  id                      String         @id @default(uuid()) @db.Uuid
+  invoiceNumber           String         @unique
+  customerId              String         @db.Uuid
+  locationId              String         @db.Uuid
+  invoiceDate             DateTime       @db.Date
+  customerNameSnapshot    String
+  customerPhoneSnapshot   String?
+  customerAddressSnapshot String?
+  status                  DocumentStatus @default(DRAFT)
+  paymentStatus           PaymentStatus  @default(UNPAID)
+  currencyCode            String         @default("PKR") @db.Char(3)
+  subtotal                Decimal        @db.Decimal(18, 2)
+  invoiceDiscountAmount   Decimal        @default(0) @db.Decimal(18, 2)
+  totalAmount             Decimal        @db.Decimal(18, 2)
+  amountReceivedCached    Decimal        @default(0) @db.Decimal(18, 2)
+  notes                   String?
+  createdById             String         @db.Uuid
+  postedAt                DateTime?      @db.Timestamptz(6)
+  voidedAt                DateTime?      @db.Timestamptz(6)
+  createdAt               DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime       @updatedAt @db.Timestamptz(6)
+
+  customer           Customer                    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  location           InventoryLocation           @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  createdBy          User                        @relation("SalesInvoiceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  lines              SalesInvoiceLine[]
+  returns            SaleReturn[]
+  paymentAllocations CustomerPaymentAllocation[]
+  ledgerEntry        CustomerLedgerEntry?
+
+  @@index([customerId, invoiceDate])
+  @@index([status, invoiceDate])
+  @@index([locationId, invoiceDate])
+}
+
+model SalesInvoiceLine {
+  id                       String   @id @default(uuid()) @db.Uuid
+  salesInvoiceId           String   @db.Uuid
+  productId                String   @db.Uuid
+  productNameSnapshot      String
+  skuSnapshot              String
+  uomCodeSnapshot          String
+  quantity                 Decimal  @db.Decimal(18, 4)
+  unitPrice                Decimal  @db.Decimal(18, 4)
+  grossAmount              Decimal  @db.Decimal(18, 2)
+  lineDiscountAmount       Decimal  @default(0) @db.Decimal(18, 2)
+  netAmount                Decimal  @db.Decimal(18, 2)
+  invoiceDiscountAllocated Decimal  @default(0) @db.Decimal(18, 2)
+  notes                    String?
+  createdAt                DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime @updatedAt @db.Timestamptz(6)
+
+  salesInvoice   SalesInvoice        @relation(fields: [salesInvoiceId], references: [id], onDelete: Restrict)
+  product        Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
+  lotAllocations SaleLotAllocation[]
+  returnLines    SaleReturnLine[]
+
+  @@index([salesInvoiceId])
+  @@index([productId])
+}
+
+model SaleLotAllocation {
+  id                 String   @id @default(uuid()) @db.Uuid
+  salesInvoiceLineId String   @db.Uuid
+  inventoryLotId     String   @db.Uuid
+  quantity           Decimal  @db.Decimal(18, 4)
+  unitCostSnapshot   Decimal  @db.Decimal(18, 4)
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+
+  salesInvoiceLine  SalesInvoiceLine       @relation(fields: [salesInvoiceLineId], references: [id], onDelete: Restrict)
+  inventoryLot      InventoryLot           @relation(fields: [inventoryLotId], references: [id], onDelete: Restrict)
+  stockMovement     StockMovement?
+  returnAllocations SaleReturnAllocation[]
+
+  @@unique([salesInvoiceLineId, inventoryLotId])
+  @@index([inventoryLotId])
+}
+
+model PurchaseReturn {
+  id                   String         @id @default(uuid()) @db.Uuid
+  returnNumber         String         @unique
+  purchaseId           String         @db.Uuid
+  supplierId           String         @db.Uuid
+  locationId           String         @db.Uuid
+  returnDate           DateTime       @db.Date
+  supplierNameSnapshot String
+  status               DocumentStatus @default(DRAFT)
+  currencyCode         String         @default("PKR") @db.Char(3)
+  totalAmount          Decimal        @db.Decimal(18, 2)
+  reason               String
+  notes                String?
+  createdById          String         @db.Uuid
+  postedAt             DateTime?      @db.Timestamptz(6)
+  voidedAt             DateTime?      @db.Timestamptz(6)
+  createdAt            DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime       @updatedAt @db.Timestamptz(6)
+
+  purchase    Purchase             @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  supplier    Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  location    InventoryLocation    @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  createdBy   User                 @relation("PurchaseReturnCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  lines       PurchaseReturnLine[]
+  ledgerEntry SupplierLedgerEntry?
+
+  @@index([purchaseId])
+  @@index([supplierId, returnDate])
+  @@index([status, returnDate])
+}
+
+model PurchaseReturnLine {
+  id               String   @id @default(uuid()) @db.Uuid
+  purchaseReturnId String   @db.Uuid
+  purchaseLineId   String   @db.Uuid
+  productId        String   @db.Uuid
+  inventoryLotId   String   @db.Uuid
+  quantity         Decimal  @db.Decimal(18, 4)
+  unitCost         Decimal  @db.Decimal(18, 4)
+  lineTotal        Decimal  @db.Decimal(18, 2)
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+
+  purchaseReturn PurchaseReturn @relation(fields: [purchaseReturnId], references: [id], onDelete: Restrict)
+  purchaseLine   PurchaseLine   @relation(fields: [purchaseLineId], references: [id], onDelete: Restrict)
+  product        Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  inventoryLot   InventoryLot   @relation(fields: [inventoryLotId], references: [id], onDelete: Restrict)
+  stockMovement  StockMovement?
+
+  @@index([purchaseReturnId])
+  @@index([purchaseLineId])
+  @@index([inventoryLotId])
+}
+
+model SaleReturn {
+  id                   String         @id @default(uuid()) @db.Uuid
+  returnNumber         String         @unique
+  salesInvoiceId       String         @db.Uuid
+  locationId           String         @db.Uuid
+  returnDate           DateTime       @db.Date
+  customerNameSnapshot String
+  status               DocumentStatus @default(DRAFT)
+  currencyCode         String         @default("PKR") @db.Char(3)
+  totalAmount          Decimal        @db.Decimal(18, 2)
+  reason               String
+  notes                String?
+  createdById          String         @db.Uuid
+  postedAt             DateTime?      @db.Timestamptz(6)
+  voidedAt             DateTime?      @db.Timestamptz(6)
+  createdAt            DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime       @updatedAt @db.Timestamptz(6)
+
+  salesInvoice SalesInvoice         @relation(fields: [salesInvoiceId], references: [id], onDelete: Restrict)
+  location     InventoryLocation    @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  createdBy    User                 @relation("SaleReturnCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  lines        SaleReturnLine[]
+  ledgerEntry  CustomerLedgerEntry?
+
+  @@index([salesInvoiceId])
+  @@index([status, returnDate])
+}
+
+model SaleReturnLine {
+  id                 String   @id @default(uuid()) @db.Uuid
+  saleReturnId       String   @db.Uuid
+  salesInvoiceLineId String   @db.Uuid
+  productId          String   @db.Uuid
+  quantity           Decimal  @db.Decimal(18, 4)
+  unitPriceSnapshot  Decimal  @db.Decimal(18, 4)
+  lineTotal          Decimal  @db.Decimal(18, 2)
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+
+  saleReturn       SaleReturn             @relation(fields: [saleReturnId], references: [id], onDelete: Restrict)
+  salesInvoiceLine SalesInvoiceLine       @relation(fields: [salesInvoiceLineId], references: [id], onDelete: Restrict)
+  product          Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  allocations      SaleReturnAllocation[]
+
+  @@index([saleReturnId])
+  @@index([salesInvoiceLineId])
+  @@index([productId])
+}
+
+model SaleReturnAllocation {
+  id                  String   @id @default(uuid()) @db.Uuid
+  saleReturnLineId    String   @db.Uuid
+  saleLotAllocationId String   @db.Uuid
+  inventoryLotId      String   @db.Uuid
+  quantity            Decimal  @db.Decimal(18, 4)
+  unitCostSnapshot    Decimal  @db.Decimal(18, 4)
+  createdAt           DateTime @default(now()) @db.Timestamptz(6)
+
+  saleReturnLine    SaleReturnLine    @relation(fields: [saleReturnLineId], references: [id], onDelete: Restrict)
+  saleLotAllocation SaleLotAllocation @relation(fields: [saleLotAllocationId], references: [id], onDelete: Restrict)
+  inventoryLot      InventoryLot      @relation(fields: [inventoryLotId], references: [id], onDelete: Restrict)
+  stockMovement     StockMovement?
+
+  @@index([saleReturnLineId])
+  @@index([saleLotAllocationId])
+  @@index([inventoryLotId])
+}
+
+model StockAdjustment {
+  id               String         @id @default(uuid()) @db.Uuid
+  adjustmentNumber String         @unique
+  adjustmentDate   DateTime       @db.Date
+  status           DocumentStatus @default(DRAFT)
+  reason           String
+  notes            String?
+  createdById      String         @db.Uuid
+  postedAt         DateTime?      @db.Timestamptz(6)
+  voidedAt         DateTime?      @db.Timestamptz(6)
+  createdAt        DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @db.Timestamptz(6)
+
+  createdBy User                  @relation("StockAdjustmentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  lines     StockAdjustmentLine[]
+
+  @@index([status, adjustmentDate])
+}
+
+model StockAdjustmentLine {
+  id                String            @id @default(uuid()) @db.Uuid
+  stockAdjustmentId String            @db.Uuid
+  productId         String            @db.Uuid
+  locationId        String            @db.Uuid
+  inventoryLotId    String?           @db.Uuid
+  movementType      StockMovementType
+  direction         MovementDirection
+  quantity          Decimal           @db.Decimal(18, 4)
+  unitCost          Decimal?          @db.Decimal(18, 4)
+  reason            String
+  createdAt         DateTime          @default(now()) @db.Timestamptz(6)
+
+  stockAdjustment StockAdjustment   @relation(fields: [stockAdjustmentId], references: [id], onDelete: Restrict)
+  product         Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  location        InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  inventoryLot    InventoryLot?     @relation(fields: [inventoryLotId], references: [id], onDelete: Restrict)
+  stockMovement   StockMovement?
+
+  @@index([stockAdjustmentId])
+  @@index([productId, locationId])
+  @@index([inventoryLotId])
+}
+
+model StockMovement {
+  id                     String            @id @default(uuid()) @db.Uuid
+  productId              String            @db.Uuid
+  locationId             String            @db.Uuid
+  inventoryLotId         String?           @db.Uuid
+  direction              MovementDirection
+  movementType           StockMovementType
+  quantity               Decimal           @db.Decimal(18, 4)
+  unitCostSnapshot       Decimal?          @db.Decimal(18, 4)
+  occurredAt             DateTime          @db.Timestamptz(6)
+  reason                 String?
+  notes                  String?
+  createdById            String            @db.Uuid
+  purchaseLineId         String?           @unique @db.Uuid
+  purchaseReturnLineId   String?           @unique @db.Uuid
+  saleLotAllocationId    String?           @unique @db.Uuid
+  saleReturnAllocationId String?           @unique @db.Uuid
+  adjustmentLineId       String?           @unique @db.Uuid
+  createdAt              DateTime          @default(now()) @db.Timestamptz(6)
+
+  product              Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  location             InventoryLocation     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  inventoryLot         InventoryLot?         @relation(fields: [inventoryLotId], references: [id], onDelete: Restrict)
+  createdBy            User                  @relation("StockMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  purchaseLine         PurchaseLine?         @relation(fields: [purchaseLineId], references: [id], onDelete: Restrict)
+  purchaseReturnLine   PurchaseReturnLine?   @relation(fields: [purchaseReturnLineId], references: [id], onDelete: Restrict)
+  saleLotAllocation    SaleLotAllocation?    @relation(fields: [saleLotAllocationId], references: [id], onDelete: Restrict)
+  saleReturnAllocation SaleReturnAllocation? @relation(fields: [saleReturnAllocationId], references: [id], onDelete: Restrict)
+  adjustmentLine       StockAdjustmentLine?  @relation(fields: [adjustmentLineId], references: [id], onDelete: Restrict)
+
+  @@index([productId, locationId, occurredAt])
+  @@index([inventoryLotId, occurredAt])
+  @@index([movementType, occurredAt])
+}
+
+model PaymentMethod {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  payments Payment[]
+  expenses Expense[]
+}
+
+model Payment {
+  id              String         @id @default(uuid()) @db.Uuid
+  paymentNumber   String         @unique
+  kind            PaymentKind
+  status          DocumentStatus @default(DRAFT)
+  supplierId      String?        @db.Uuid
+  customerId      String?        @db.Uuid
+  paymentMethodId String         @db.Uuid
+  paymentDate     DateTime       @db.Date
+  amount          Decimal        @db.Decimal(18, 2)
+  currencyCode    String         @default("PKR") @db.Char(3)
+  reference       String?
+  notes           String?
+  createdById     String         @db.Uuid
+  postedAt        DateTime?      @db.Timestamptz(6)
+  voidedAt        DateTime?      @db.Timestamptz(6)
+  createdAt       DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @db.Timestamptz(6)
+
+  supplier            Supplier?                   @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  customer            Customer?                   @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  paymentMethod       PaymentMethod               @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  createdBy           User                        @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  supplierAllocations SupplierPaymentAllocation[]
+  customerAllocations CustomerPaymentAllocation[]
+  supplierLedgerEntry SupplierLedgerEntry?
+  customerLedgerEntry CustomerLedgerEntry?
+
+  @@index([supplierId, paymentDate])
+  @@index([customerId, paymentDate])
+  @@index([status, paymentDate])
+  @@index([paymentMethodId])
+}
+
+model SupplierPaymentAllocation {
+  id         String   @id @default(uuid()) @db.Uuid
+  paymentId  String   @db.Uuid
+  purchaseId String   @db.Uuid
+  amount     Decimal  @db.Decimal(18, 2)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  payment  Payment  @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentId, purchaseId])
+  @@index([purchaseId])
+}
+
+model CustomerPaymentAllocation {
+  id             String   @id @default(uuid()) @db.Uuid
+  paymentId      String   @db.Uuid
+  salesInvoiceId String   @db.Uuid
+  amount         Decimal  @db.Decimal(18, 2)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  payment      Payment      @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  salesInvoice SalesInvoice @relation(fields: [salesInvoiceId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentId, salesInvoiceId])
+  @@index([salesInvoiceId])
+}
+
+model SupplierLedgerEntry {
+  id               String                  @id @default(uuid()) @db.Uuid
+  supplierId       String                  @db.Uuid
+  entryDate        DateTime                @db.Date
+  entryType        SupplierLedgerEntryType
+  effect           BalanceEffect
+  amount           Decimal                 @db.Decimal(18, 2)
+  currencyCode     String                  @default("PKR") @db.Char(3)
+  purchaseId       String?                 @unique @db.Uuid
+  purchaseReturnId String?                 @unique @db.Uuid
+  paymentId        String?                 @unique @db.Uuid
+  reference        String?
+  reason           String?
+  createdById      String                  @db.Uuid
+  createdAt        DateTime                @default(now()) @db.Timestamptz(6)
+
+  supplier       Supplier        @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  purchase       Purchase?       @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  purchaseReturn PurchaseReturn? @relation(fields: [purchaseReturnId], references: [id], onDelete: Restrict)
+  payment        Payment?        @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  createdBy      User            @relation("SupplierLedgerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([supplierId, entryDate, id])
+  @@index([entryType, entryDate])
+}
+
+model CustomerLedgerEntry {
+  id             String                  @id @default(uuid()) @db.Uuid
+  customerId     String                  @db.Uuid
+  entryDate      DateTime                @db.Date
+  entryType      CustomerLedgerEntryType
+  effect         BalanceEffect
+  amount         Decimal                 @db.Decimal(18, 2)
+  currencyCode   String                  @default("PKR") @db.Char(3)
+  salesInvoiceId String?                 @unique @db.Uuid
+  saleReturnId   String?                 @unique @db.Uuid
+  paymentId      String?                 @unique @db.Uuid
+  reference      String?
+  reason         String?
+  createdById    String                  @db.Uuid
+  createdAt      DateTime                @default(now()) @db.Timestamptz(6)
+
+  customer     Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  salesInvoice SalesInvoice? @relation(fields: [salesInvoiceId], references: [id], onDelete: Restrict)
+  saleReturn   SaleReturn?   @relation(fields: [saleReturnId], references: [id], onDelete: Restrict)
+  payment      Payment?      @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  createdBy    User          @relation("CustomerLedgerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([customerId, entryDate, id])
+  @@index([entryType, entryDate])
+}
+
+model ExpenseCategory {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  expenses Expense[]
+}
+
+model Expense {
+  id                String   @id @default(uuid()) @db.Uuid
+  expenseNumber     String   @unique
+  expenseCategoryId String   @db.Uuid
+  expenseDate       DateTime @db.Date
+  amount            Decimal  @db.Decimal(18, 2)
+  currencyCode      String   @default("PKR") @db.Char(3)
+  description       String
+  supplierId        String?  @db.Uuid
+  purchaseLotId     String?  @db.Uuid
+  paymentMethodId   String   @db.Uuid
+  reference         String?
+  notes             String?
+  createdById       String   @db.Uuid
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(6)
+
+  expenseCategory ExpenseCategory @relation(fields: [expenseCategoryId], references: [id], onDelete: Restrict)
+  supplier        Supplier?       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  purchaseLot     PurchaseLot?    @relation(fields: [purchaseLotId], references: [id], onDelete: Restrict)
+  paymentMethod   PaymentMethod   @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+  createdBy       User            @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([expenseDate, expenseCategoryId])
+  @@index([supplierId, expenseDate])
+  @@index([purchaseLotId])
+  @@index([paymentMethodId])
+}
