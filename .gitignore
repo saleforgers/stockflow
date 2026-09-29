@@ -19,6 +19,9 @@
 .env.test.local
 .env.production.local
 
+# local Vercel project metadata
+/.vercel
+
 # logs and local tooling
 *.log
 .DS_Store

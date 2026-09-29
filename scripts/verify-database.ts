@@ -14,6 +14,7 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: data
 
 const expectedTables = [
   "Category",
+  "Account",
   "Customer",
   "CustomerLedgerEntry",
   "CustomerPaymentAllocation",
@@ -35,6 +36,7 @@ const expectedTables = [
   "SaleReturnLine",
   "SalesInvoice",
   "SalesInvoiceLine",
+  "Session",
   "StockAdjustment",
   "StockAdjustmentLine",
   "StockMovement",
@@ -43,6 +45,7 @@ const expectedTables = [
   "SupplierPaymentAllocation",
   "UnitOfMeasure",
   "User",
+  "Verification",
 ] as const;
 
 const expectedEnums = [

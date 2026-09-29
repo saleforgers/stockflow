@@ -57,7 +57,7 @@ Posted transactional history is retained indefinitely by application behavior in
 
 | Area        | Entities                                                                                                        | Purpose                                                          |
 | ----------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Identity    | `User`                                                                                                          | Authentication identity, simple role, transaction actor          |
+| Identity    | `User`, `Account`, `Session`, `Verification`                                                                    | Authentication identity, credentials, persistent sessions        |
 | Catalogue   | `Category`, `UnitOfMeasure`, `Product`                                                                          | Product master data and flexible specifications                  |
 | Parties     | `Supplier`, `Customer`                                                                                          | Counterparty master data; balances are not stored here           |
 | Inventory   | `InventoryLocation`, `InventoryLot`, `StockMovement`, `StockAdjustment`, `StockAdjustmentLine`                  | Location-aware quantity audit trail and FIFO cost layers         |
@@ -88,6 +88,21 @@ Posted transactional history is retained indefinitely by application behavior in
 Commercial headers use `DRAFT`, `POSTED`, and `VOID`. Drafts create no stock or ledger effect. Posting sets `postedAt` and atomically creates all effects. `VOID` is not itself an accounting operation: a posted document reaches that state only after reversal records have been created.
 
 Service rules reject edits to financially or physically meaningful fields after posting. Database roles should deny hard deletion of posted data in production. Master records use `isActive` rather than deletion when referenced.
+
+### 5.1 Authentication persistence
+
+Better Auth owns `Account`, `Session`, and `Verification`. Credential passwords are memory-hard hashes in `Account.password`; the removed Phase 1A proposal field `User.passwordHash` is not duplicated. `User` adds `emailVerified` and optional `image` for adapter compatibility while retaining the StockFlow `UserRole` enum and `isActive` control. Session/account rows cascade only when a User is deliberately removed; business transaction relations still restrict deletion of historically referenced users.
+
+`Session.token` is unique, sessions have indexed expiry/user fields, and credential accounts are unique by `(providerId, accountId)`. Application guards re-check `User.isActive` on every protected request. The first Admin service uses an advisory lock and a serializable transaction so bootstrap cannot race or silently create a second Admin.
+
+### 5.2 Phase 1B master-data invariants
+
+- Category slugs and Product SKUs are normalized before unique writes.
+- Category parent changes traverse ancestors and reject self-links/cycles.
+- UOM decimal scale stays within 0–4 and cannot change once a Product references the unit.
+- Product default prices and thresholds are parsed as decimal strings; ordinary JavaScript floating point is not used.
+- Product specification rows become a normalized JSON object with unique stable keys and nonempty values.
+- Master data is deactivated, not hard-deleted. The seeded Walk-in Customer cannot be edited or deactivated through normal services, and the partial unique database index still prevents a second one.
 
 ## 6. Purchase lots and inventory cost layers
 

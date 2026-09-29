@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseDatabaseAdministrationEnvironment, parseServerEnvironment } from "./schema";
+import {
+  parseAuthenticationEnvironment,
+  parseDatabaseAdministrationEnvironment,
+  parseServerEnvironment,
+} from "./schema";
 
 describe("server environment validation", () => {
   it("accepts a PostgreSQL connection URL", () => {
@@ -28,5 +32,17 @@ describe("server environment validation", () => {
     expect(() =>
       parseDatabaseAdministrationEnvironment({ DIRECT_URL: "https://example.com" }),
     ).toThrow("PostgreSQL protocol");
+  });
+
+  it("requires a high-entropy authentication secret", () => {
+    expect(
+      parseAuthenticationEnvironment({
+        AUTH_SECRET: "a-secure-test-secret-with-at-least-32-characters",
+      }).AUTH_SECRET,
+    ).toHaveLength(48);
+    expect(() => parseAuthenticationEnvironment({})).toThrow("AUTH_SECRET is required");
+    expect(() => parseAuthenticationEnvironment({ AUTH_SECRET: "too-short" })).toThrow(
+      "at least 32",
+    );
   });
 });

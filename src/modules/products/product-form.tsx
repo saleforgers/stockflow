@@ -1,0 +1,228 @@
+"use client";
+
+import Link from "next/link";
+import { useActionState, useState } from "react";
+import { FormField } from "@/components/ui/form-field";
+import { FormMessage } from "@/components/ui/form-message";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { INITIAL_ACTION_RESULT, type ActionResult } from "@/lib/actions/action-result";
+
+type Option = { id: string; name: string };
+type ProductValue = {
+  sku: string;
+  name: string;
+  description: string | null;
+  categoryId: string;
+  inventoryUnitId: string;
+  preferredSupplierId: string | null;
+  defaultPurchasePrice: string | null;
+  defaultSellingPrice: string | null;
+  lowStockThreshold: string;
+  specifications: Array<{ key: string; value: string }>;
+};
+
+export function ProductForm({
+  action,
+  product,
+  categories,
+  units,
+  suppliers,
+}: {
+  action: (state: ActionResult, data: FormData) => Promise<ActionResult>;
+  product?: ProductValue;
+  categories: Option[];
+  units: Array<Option & { code: string; decimalScale: number }>;
+  suppliers: Option[];
+}) {
+  const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const [specifications, setSpecifications] = useState(
+    product?.specifications.length ? product.specifications : [{ key: "", value: "" }],
+  );
+  return (
+    <form action={formAction} className="card max-w-4xl space-y-6 p-6">
+      <FormMessage result={state} />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <FormField htmlFor="sku" label="SKU" hint="Stored in normalized uppercase form." required>
+          <input
+            className="input"
+            defaultValue={product?.sku}
+            id="sku"
+            maxLength={64}
+            name="sku"
+            required
+          />
+        </FormField>
+        <FormField htmlFor="name" label="Product name" required>
+          <input
+            className="input"
+            defaultValue={product?.name}
+            id="name"
+            maxLength={160}
+            name="name"
+            required
+          />
+        </FormField>
+        <FormField htmlFor="categoryId" label="Category" required>
+          <select
+            className="input"
+            defaultValue={product?.categoryId ?? ""}
+            id="categoryId"
+            name="categoryId"
+            required
+          >
+            <option disabled value="">
+              Select category
+            </option>
+            {categories.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField htmlFor="inventoryUnitId" label="Inventory unit" required>
+          <select
+            className="input"
+            defaultValue={product?.inventoryUnitId ?? ""}
+            id="inventoryUnitId"
+            name="inventoryUnitId"
+            required
+          >
+            <option disabled value="">
+              Select unit
+            </option>
+            {units.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.code} — {item.name} ({item.decimalScale} decimals)
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField htmlFor="preferredSupplierId" label="Preferred supplier">
+          <select
+            className="input"
+            defaultValue={product?.preferredSupplierId ?? ""}
+            id="preferredSupplierId"
+            name="preferredSupplierId"
+          >
+            <option value="">None</option>
+            {suppliers.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField
+          htmlFor="lowStockThreshold"
+          label="Low-stock threshold"
+          hint="Validated against the selected unit's decimal scale."
+          required
+        >
+          <input
+            className="input"
+            defaultValue={product?.lowStockThreshold ?? "0"}
+            id="lowStockThreshold"
+            inputMode="decimal"
+            name="lowStockThreshold"
+            required
+          />
+        </FormField>
+        <FormField
+          htmlFor="defaultPurchasePrice"
+          label="Default purchase price (PKR)"
+          hint="Optional convenience value; not historical cost."
+        >
+          <input
+            className="input"
+            defaultValue={product?.defaultPurchasePrice ?? ""}
+            id="defaultPurchasePrice"
+            inputMode="decimal"
+            name="defaultPurchasePrice"
+          />
+        </FormField>
+        <FormField
+          htmlFor="defaultSellingPrice"
+          label="Default selling price (PKR)"
+          hint="Optional convenience value; invoice lines later preserve actual prices."
+        >
+          <input
+            className="input"
+            defaultValue={product?.defaultSellingPrice ?? ""}
+            id="defaultSellingPrice"
+            inputMode="decimal"
+            name="defaultSellingPrice"
+          />
+        </FormField>
+      </div>
+      <FormField htmlFor="description" label="Description">
+        <textarea
+          className="input min-h-28"
+          defaultValue={product?.description ?? ""}
+          id="description"
+          maxLength={2000}
+          name="description"
+        />
+      </FormField>
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-semibold text-slate-900">Specifications</legend>
+        <p className="text-xs text-slate-500">
+          Add only attributes relevant to this SKU. Keys are normalized on the server.
+        </p>
+        {specifications.map((row, index) => (
+          <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]" key={index}>
+            <input
+              aria-label={`Specification ${index + 1} attribute`}
+              className="input"
+              name="specKey"
+              placeholder="Attribute (e.g. Material)"
+              value={row.key}
+              onChange={(event) =>
+                setSpecifications((current) =>
+                  current.map((item, i) =>
+                    i === index ? { ...item, key: event.target.value } : item,
+                  ),
+                )
+              }
+            />
+            <input
+              aria-label={`Specification ${index + 1} value`}
+              className="input"
+              name="specValue"
+              placeholder="Value (e.g. Mild Steel)"
+              value={row.value}
+              onChange={(event) =>
+                setSpecifications((current) =>
+                  current.map((item, i) =>
+                    i === index ? { ...item, value: event.target.value } : item,
+                  ),
+                )
+              }
+            />
+            <button
+              className="btn-secondary"
+              disabled={specifications.length === 1}
+              onClick={() => setSpecifications((current) => current.filter((_, i) => i !== index))}
+              type="button"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          className="btn-secondary"
+          onClick={() => setSpecifications((current) => [...current, { key: "", value: "" }])}
+          type="button"
+        >
+          Add specification
+        </button>
+      </fieldset>
+      <div className="flex gap-3 border-t border-slate-200 pt-5">
+        <SubmitButton />
+        <Link className="btn-secondary" href={product ? "/products" : "/products"}>
+          Cancel
+        </Link>
+      </div>
+    </form>
+  );
+}

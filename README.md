@@ -2,7 +2,7 @@
 
 StockFlow is a general-purpose inventory, purchasing, sales, payment, expense, and party-ledger system for a trading business.
 
-Repository status: **Phase 1A complete — ready for Phase 1B**. Phase 1B has not started, and business-module screens and transaction-posting services are intentionally not implemented yet.
+Repository status: **Phase 1B complete — ready for Phase 2 planning**. Authentication, the responsive application shell, and Category/UOM/Product/Supplier/Customer master data are implemented. Transaction posting, stock allocation, ledgers, payments, expenses, analytics, and reports remain intentionally out of scope.
 
 ## Foundation documentation
 
@@ -25,6 +25,19 @@ Copy `.env.example` to the ignored `.env`, add the development connection values
 npm ci
 npm run dev
 ```
+
+Generate a unique high-entropy `AUTH_SECRET`, set `BETTER_AUTH_URL=http://localhost:3000`, and keep both server-only. Create the first business owner only through the one-time bootstrap command:
+
+```text
+STOCKFLOW_ADMIN_NAME="Business Owner"
+STOCKFLOW_ADMIN_EMAIL="owner@example.com"
+STOCKFLOW_ADMIN_PASSWORD="a long unique password"
+npm run admin:bootstrap
+```
+
+On PowerShell, set those three values as process environment variables before running the command. Remove them immediately afterward. The command never prints the password and refuses to create a bootstrap Admin once any Admin exists. StockFlow has no self-registration screen.
+
+Authenticated routes are `/`, `/products`, `/categories`, `/units`, `/suppliers`, and `/customers`; `/login` is public. In Phase 1B all authenticated roles may view master data, while only `ADMIN` may mutate it.
 
 Use `npm run build` for a production build and `npm start` to serve that build. The standard repository verification command is `npm run check`; database-backed verification additionally uses `npm run db:migrate:status`, `npm run db:verify`, and `npm run test:integration`.
 
@@ -52,7 +65,7 @@ npm run test:integration
 npm run db:migrate:status
 ```
 
-The reviewed baseline is [the initial migration](prisma/migrations/20260930000100_init/migration.sql). It was generated from an empty database and already incorporates `prisma/sql/initial-integrity-constraints.sql`. Do not execute the supplement separately. Do not use `prisma db push` as a migration strategy and do not edit this migration after its first application.
+The reviewed baseline is [the initial migration](prisma/migrations/20260930000100_init/migration.sql). It was generated from an empty database and already incorporates `prisma/sql/initial-integrity-constraints.sql`. Phase 1B adds `20260930020000_phase_1b_auth_master_data` for Better Auth tables and User compatibility. Do not execute the supplement separately, use `prisma db push`, or edit either applied migration.
 
 `prisma migrate dev` needs a shadow database for future schema changes. Use it only with a development role that can create the shadow database or with an explicitly configured disposable shadow database. Applying the already-reviewed initial migration to a clean development project uses `prisma migrate deploy` and does not need a shadow database.
 

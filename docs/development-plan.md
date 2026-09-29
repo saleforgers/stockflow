@@ -51,15 +51,17 @@ Phase 1A is complete only after the development Supabase database is reachable, 
 
 The Git deployment path is feature branch → GitHub pull request → Vercel Preview using `stockflow-dev` → review → merge to `main` → Vercel Production using `stockflow-prod`. Preview and Production credentials remain isolated.
 
-On 2026-09-30, both development database connections succeeded, the reviewed initial migration applied cleanly, migration status reported current, all prepared catalog objects were verified, the foundation seed succeeded twice, and all ten database integration tests passed. Phase 1A is complete and ready for Phase 1B; Phase 1B has not started.
+On 2026-09-30, both development database connections succeeded, the reviewed initial migration applied cleanly, migration status reported current, all prepared catalog objects were verified, the foundation seed succeeded twice, and all ten database integration tests passed. Phase 1A is complete.
 
-## Phase 1B — Authentication and master data
+## Phase 1B — Authentication and master data (complete)
 
-- Implement secure authentication and session handling.
-- Implement the first-admin bootstrap without seeded/default credentials.
-- Implement category, UOM, product, supplier, and customer application services and minimal management UI.
-- Enforce product specification validation without category-specific database columns.
-- Add database integration coverage for master-data constraints.
+- Better Auth with Prisma-backed persistent sessions, secure cookies, disabled self-registration, active-user checks, and centralized role guards.
+- Replay-safe `npm run admin:bootstrap` without seeded/default credentials.
+- Responsive authenticated shell and server-rendered, paginated Category, UOM, Product, Supplier, and Customer management.
+- Admin-only mutations, deactivation policy, protected system Walk-in Customer, category-cycle prevention, referenced-UOM scale protection, normalized SKUs, Decimal-safe defaults, and validated JSON specifications.
+- New reviewed/applied migration `20260930020000_phase_1b_auth_master_data` plus authentication and master-data unit/integration coverage.
+
+Phase 2 is not started. Its exact purchase draft/posting slice must be planned before implementation.
 
 ## Phase 2 — Purchasing and supplier ledger
 

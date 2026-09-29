@@ -1,5 +1,6 @@
 export type ApplicationErrorCode =
   | "VALIDATION_ERROR"
+  | "UNAUTHORIZED"
   | "NOT_FOUND"
   | "CONFLICT"
   | "FORBIDDEN"
