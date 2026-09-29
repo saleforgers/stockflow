@@ -21,10 +21,17 @@ export const databaseAdministrationEnvironmentSchema = z.object({
     ),
 });
 
+export const authenticationEnvironmentSchema = z.object({
+  AUTH_SECRET: z.string({ error: "AUTH_SECRET is required" }).min(32, {
+    message: "AUTH_SECRET must contain at least 32 characters",
+  }),
+});
+
 export type ServerEnvironment = z.infer<typeof serverEnvironmentSchema>;
 export type DatabaseAdministrationEnvironment = z.infer<
   typeof databaseAdministrationEnvironmentSchema
 >;
+export type AuthenticationEnvironment = z.infer<typeof authenticationEnvironmentSchema>;
 
 export function parseServerEnvironment(
   environment: Record<string, string | undefined>,
@@ -36,4 +43,10 @@ export function parseDatabaseAdministrationEnvironment(
   environment: Record<string, string | undefined>,
 ): DatabaseAdministrationEnvironment {
   return databaseAdministrationEnvironmentSchema.parse(environment);
+}
+
+export function parseAuthenticationEnvironment(
+  environment: Record<string, string | undefined>,
+): AuthenticationEnvironment {
+  return authenticationEnvironmentSchema.parse(environment);
 }

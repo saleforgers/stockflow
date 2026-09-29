@@ -4,7 +4,7 @@
 
 StockFlow is a general-purpose inventory, purchasing, sales, payment, expense, and party-ledger system for a trading business. It must support metal products, interior products, and future categories without category-specific assumptions in core tables.
 
-The repository status is **Phase 1A complete — ready for Phase 1B**. The managed PostgreSQL connection architecture, reviewed initial migration, integrity SQL, foundation seeding, database verification, integration tests, and deployment preparation are complete. Phase 1B has not started; do not build business-module screens or posting services until explicitly authorized.
+The repository status is **Phase 1B complete — ready for Phase 2 planning**. Secure database-backed authentication, the application shell, first-Admin bootstrap, and Category/UOM/Product/Supplier/Customer master-data modules are implemented. Phase 2 has not started; do not build purchasing, posting, ledger, payment, inventory-allocation, sales, expense, dashboard, or reporting workflows until explicitly authorized.
 
 ## Required stack
 
@@ -30,6 +30,10 @@ When implementation begins, organize code by business capability rather than by 
 - `docs`: requirements, decisions, and delivery plans
 
 UI code must not contain posting logic, stock allocation logic, ledger rules, or financial formulas. Put those rules in server-side application services and execute multi-record posting operations in a single database transaction.
+
+Authentication uses Better Auth with the Prisma adapter and persistent PostgreSQL sessions. Public sign-up is disabled. Every protected route and mutation must validate the session server-side; master-data mutations require `ADMIN` in Phase 1B. Never authorize from client-supplied roles or UI visibility.
+
+Master data is deactivated rather than deleted. The controlled Walk-in Customer is immutable through normal master-data services. Category hierarchies must remain acyclic, referenced UOM decimal scales are immutable, and product specifications remain validated JSON rather than category-specific columns.
 
 ## Non-negotiable data rules
 
@@ -82,3 +86,13 @@ Before handing off a change, run the relevant formatter, linter, type check, tes
 ## Decision discipline
 
 Record assumptions before implementing them. If a missing rule could alter stock, cost of goods sold, supplier payable, customer receivable, payments, tax, discounts, or historical records, stop and obtain a business decision rather than guessing. The unresolved Phase 0 decisions are maintained in `docs/requirements.md`.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

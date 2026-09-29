@@ -55,7 +55,6 @@ async function createCommercialFixture() {
     data: {
       name: marker,
       email: `${uniqueValue("it-")}@example.test`,
-      passwordHash: "integration-test-not-a-login-credential",
       role: "ADMIN",
     },
   });
