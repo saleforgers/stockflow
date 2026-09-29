@@ -18,21 +18,29 @@ export default async function UnitsPage({
   const params = await searchParams;
   const page = normalizePage(params.page);
   const active = params.active === "true" ? true : params.active === "false" ? false : undefined;
-  const { items, total, pageSize } = await listUnits({ search: params.search, active, page });
-  const user = await getCurrentUser();
+
+  const [unitsResult, user] = await Promise.all([
+    listUnits({ search: params.search, active, page }),
+    getCurrentUser(),
+  ]);
+
+  const { items, total, pageSize } = unitsResult;
   const canEdit = user?.role === "ADMIN";
   return (
     <>
       <PageHeader
         title="Units of measurement"
-        description="Each product uses one primary inventory unit in V1."
+        description="Manage inventory units of measure and decimal precision scales."
         actionHref={canEdit ? "/units/new" : undefined}
         actionLabel="New unit"
       />
       {params.success ? (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <div className="alert-success" role="status">
+          <svg className="size-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
           Unit saved successfully.
-        </p>
+        </div>
       ) : null}
       <SearchFilters active={params.active} search={params.search} />
       {items.length === 0 ? (
@@ -64,7 +72,7 @@ export default async function UnitsPage({
                     <div className="flex justify-end gap-2">
                       {canEdit ? (
                         <>
-                          <Link className="btn-secondary text-xs" href={`/units/${item.id}/edit`}>
+                          <Link className="btn-secondary text-xs" href={`/units/${item.id}/edit`} prefetch={false}>
                             Edit
                           </Link>
                           <ConfirmForm

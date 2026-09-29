@@ -50,3 +50,12 @@ export async function getProductFormOptions() {
   ]);
   return { categories, units, suppliers };
 }
+
+export function getProductFilterCategories() {
+  return prisma.category.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}
+

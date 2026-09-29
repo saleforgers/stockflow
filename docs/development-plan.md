@@ -64,6 +64,29 @@ On 2026-09-30, both development database connections succeeded, the reviewed ini
 - Vercel production deployment verified and live at `https://stockflow-brown-mu.vercel.app` with `DATABASE_URL`, `AUTH_SECRET`, and `BETTER_AUTH_URL` configured.
 - First Admin initialized via `npm run admin:bootstrap`.
 
+### Phase 1B Performance Diagnostics & Production Optimization
+
+- **Performance diagnostics & root causes**:
+  - Baseline page TTFB: Dashboard ~3,400ms, Products ~2,000ms, Categories/Units/Suppliers/Customers ~1,370–1,530ms.
+  - *Compute/DB region divergence*: Vercel functions were defaulted to `iad1` (Washington, D.C.), while Supabase PostgreSQL is in `ap-northeast-1` (Tokyo, Japan). Each network hop added ~180ms round-trip latency.
+  - *Per-request auth duplication*: `ProtectedLayout` and each page independently called `getCurrentUser()`, running 4 un-cached sequential database queries (`getSession` + `prisma.user.findUnique`) per request.
+  - *Sequential page queries*: Page queries (`list*`, options, auth) executed sequentially instead of concurrently. Products page also queried unused units and suppliers on list view.
+  - *Serverless singleton handling*: `src/lib/db/prisma.ts` only cached client on `globalThis` in development, preventing connection pool reuse across warm production lambdas.
+  - *Row action prefetching*: Table rows generated excessive concurrent serverless SSR prefetch requests.
+
+- **Optimizations implemented**:
+  - Added `vercel.json` configuring Vercel Functions compute region to Tokyo (`hnd1`), co-locating functions with the Supabase database (`ap-northeast-1`).
+  - Wrapped `getCurrentUser` in React's `cache()` for request-scoped deduplication without compromising session or active-user security.
+  - Parallelized independent database queries via `Promise.all` across Dashboard, Products, Categories, Units, Suppliers, and Customers.
+  - Streamlined Products list page to query only active categories for filtering (`getProductFilterCategories`).
+  - Cached Prisma client on `globalThis` unconditionally to reuse connections across warm serverless invocations.
+  - Added `prefetch={false}` to table row action links.
+
+- **Production UI cleanup**:
+  - Replaced developer/internal roadmap text (e.g. `Phase 1B — Master Data Active`, `in V1`, `intentionally not shown yet`, `arriving in later phases`) with clean business-facing copy.
+  - Implemented client `NavLinks` with active route highlighting (`bg-indigo-600/25 text-indigo-300 font-semibold border-l-2 border-indigo-400`).
+  - Reduced excessive empty-state vertical spacing from `py-16` to `py-10`.
+
 Phase 2 is not started. Its exact purchase draft/posting slice must be planned before implementation.
 
 ## Phase 2 — Purchasing and supplier ledger

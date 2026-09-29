@@ -1,5 +1,5 @@
 import "server-only";
-
+import { cache } from "react";
 import { headers } from "next/headers";
 
 import { auth } from "./auth";
@@ -9,7 +9,7 @@ import type { UserRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { ApplicationError } from "@/lib/errors/application-error";
 
-export async function getCurrentUser(): Promise<AuthorizedUser | null> {
+export const getCurrentUser = cache(async (): Promise<AuthorizedUser | null> => {
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session) {
@@ -22,7 +22,7 @@ export async function getCurrentUser(): Promise<AuthorizedUser | null> {
   });
 
   return user?.isActive ? user : null;
-}
+});
 
 export async function requireUser(): Promise<AuthorizedUser> {
   const user = await getCurrentUser();

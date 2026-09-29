@@ -8,9 +8,9 @@ export function EmptyState({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center">
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center">
       {icon ?? (
-        <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-slate-50">
+        <div className="mb-3 flex size-11 items-center justify-center rounded-full bg-slate-50">
           <svg
             className="size-6 text-slate-400"
             fill="none"

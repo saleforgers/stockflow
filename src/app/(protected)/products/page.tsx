@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { getCurrentUser } from "@/lib/auth/session";
 import { normalizePage } from "@/lib/pagination";
 import { setProductActiveAction } from "@/modules/products/actions";
-import { getProductFormOptions, listProducts } from "@/modules/products/queries";
+import { getProductFilterCategories, listProducts } from "@/modules/products/queries";
 export default async function ProductsPage({
   searchParams,
 }: {
@@ -17,20 +17,25 @@ export default async function ProductsPage({
   const params = await searchParams;
   const page = normalizePage(params.page);
   const active = params.active === "true" ? true : params.active === "false" ? false : undefined;
-  const { items, total, pageSize } = await listProducts({
-    search: params.search,
-    active,
-    categoryId: params.categoryId,
-    page,
-  });
-  const options = await getProductFormOptions();
-  const user = await getCurrentUser();
+
+  const [productsResult, categories, user] = await Promise.all([
+    listProducts({
+      search: params.search,
+      active,
+      categoryId: params.categoryId,
+      page,
+    }),
+    getProductFilterCategories(),
+    getCurrentUser(),
+  ]);
+
+  const { items, total, pageSize } = productsResult;
   const canEdit = user?.role === "ADMIN";
   return (
     <>
       <PageHeader
         title="Products"
-        description="Each distinct stocked combination is a separate SKU. Current stock is never edited here."
+        description="Manage distinct stocked items, SKUs, and default pricing."
         actionHref={canEdit ? "/products/new" : undefined}
         actionLabel="New product"
       />
@@ -51,7 +56,7 @@ export default async function ProductsPage({
             name="categoryId"
           >
             <option value="">All categories</option>
-            {options.categories.map((item) => (
+            {categories.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
               </option>
@@ -84,6 +89,7 @@ export default async function ProductsPage({
                     <Link
                       className="font-medium text-indigo-700 hover:underline"
                       href={`/products/${item.id}`}
+                      prefetch={false}
                     >
                       {item.sku}
                     </Link>
@@ -104,6 +110,7 @@ export default async function ProductsPage({
                           <Link
                             className="btn-secondary text-xs"
                             href={`/products/${item.id}/edit`}
+                            prefetch={false}
                           >
                             Edit
                           </Link>

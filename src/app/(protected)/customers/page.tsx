@@ -17,14 +17,19 @@ export default async function CustomersPage({
   const params = await searchParams;
   const page = normalizePage(params.page);
   const active = params.active === "true" ? true : params.active === "false" ? false : undefined;
-  const { items, total, pageSize } = await listCustomers({ search: params.search, active, page });
-  const user = await getCurrentUser();
+
+  const [customersResult, user] = await Promise.all([
+    listCustomers({ search: params.search, active, page }),
+    getCurrentUser(),
+  ]);
+
+  const { items, total, pageSize } = customersResult;
   const canEdit = user?.role === "ADMIN";
   return (
     <>
       <PageHeader
         title="Customers"
-        description="Maintain customer contacts; receivables and sales are intentionally not shown yet."
+        description="Manage customer accounts, contact details, and client information."
         actionHref={canEdit ? "/customers/new" : undefined}
         actionLabel="New customer"
       />
@@ -75,6 +80,7 @@ export default async function CustomersPage({
                           <Link
                             className="btn-secondary text-xs"
                             href={`/customers/${item.id}/edit`}
+                            prefetch={false}
                           >
                             Edit
                           </Link>

@@ -75,8 +75,10 @@ const moduleLinks = [
 ] as const;
 
 export default async function DashboardPage() {
-  const user = await requireUser();
-  const counts = await getDashboardCounts();
+  const [user, counts] = await Promise.all([
+    requireUser(),
+    getDashboardCounts(),
+  ]);
 
   return (
     <>
@@ -86,7 +88,7 @@ export default async function DashboardPage() {
           Good day, {user.name.split(" ")[0]} 👋
         </h1>
         <p className="text-sm text-slate-500">
-          Here&apos;s an overview of your master data. Purchasing, sales, and analytics arrive in later phases.
+          Here&apos;s an overview of your active inventory and master data.
         </p>
       </div>
 
@@ -126,7 +128,7 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Phase info banner */}
+      {/* Information banner */}
       <div
         className="flex items-start gap-4 rounded-xl p-5"
         style={{
@@ -143,10 +145,9 @@ export default async function DashboardPage() {
           </svg>
         </div>
         <div>
-          <p className="font-semibold text-slate-900">Phase 1B — Master Data Active</p>
+          <p className="font-semibold text-slate-900">Master Data Active</p>
           <p className="mt-0.5 text-sm text-slate-600">
-            Products, categories, units, suppliers, and customers are fully managed here.
-            Stock movements, purchasing, sales, payments, and analytics will be added in upcoming phases.
+            Products, categories, units of measure, suppliers, and customer records are configured and ready for inventory operations.
           </p>
         </div>
       </div>

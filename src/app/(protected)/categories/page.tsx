@@ -19,18 +19,23 @@ export default async function CategoriesPage({
   const params = await searchParams;
   const page = normalizePage(params.page);
   const active = params.active === "true" ? true : params.active === "false" ? false : undefined;
-  const { items, total, pageSize } = await listCategories({
-    search: params.search,
-    active,
-    page,
-  });
-  const user = await getCurrentUser();
+
+  const [categoriesResult, user] = await Promise.all([
+    listCategories({
+      search: params.search,
+      active,
+      page,
+    }),
+    getCurrentUser(),
+  ]);
+
+  const { items, total, pageSize } = categoriesResult;
   const canEdit = user?.role === "ADMIN";
   return (
     <>
       <PageHeader
         title="Categories"
-        description="Organize products without tying the catalogue to any one industry."
+        description="Organize your products into catalog categories."
         actionHref={canEdit ? "/categories/new" : undefined}
         actionLabel="New category"
       />
@@ -81,6 +86,7 @@ export default async function CategoriesPage({
                           <Link
                             className="btn-secondary text-xs"
                             href={`/categories/${item.id}/edit`}
+                            prefetch={false}
                           >
                             Edit
                           </Link>

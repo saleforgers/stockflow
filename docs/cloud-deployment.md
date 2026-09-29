@@ -29,7 +29,7 @@ Do not run `prisma migrate reset` unless the exact target has been independently
 
 ## Vercel
 
-Connect the GitHub repository to Vercel and use Git-based deployments. Configure `DATABASE_URL` and `DIRECT_URL` separately for Preview and Production. Phase 1B also requires a unique high-entropy `AUTH_SECRET` and the environment's canonical HTTPS `BETTER_AUTH_URL`; both are server-only and must differ where isolation warrants it. Prisma Client generation occurs during install/build; migrations and seeds do not.
+Connect the GitHub repository to Vercel and use Git-based deployments. Configure `DATABASE_URL` and `DIRECT_URL` separately for Preview and Production. Phase 1B also requires a unique high-entropy `AUTH_SECRET` and the environment's canonical HTTPS `BETTER_AUTH_URL`; both are server-only and must differ where isolation warrants it. Prisma Client generation occurs during install/build; migrations and seeds do not. Serverless function compute regions are configured via `vercel.json` (`hnd1` Tokyo) to co-locate compute with the Supabase database (`ap-northeast-1`).
 
 ## Production migrations
 

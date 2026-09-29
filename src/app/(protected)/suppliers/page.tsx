@@ -17,14 +17,19 @@ export default async function SuppliersPage({
   const params = await searchParams;
   const page = normalizePage(params.page);
   const active = params.active === "true" ? true : params.active === "false" ? false : undefined;
-  const { items, total, pageSize } = await listSuppliers({ search: params.search, active, page });
-  const user = await getCurrentUser();
+
+  const [suppliersResult, user] = await Promise.all([
+    listSuppliers({ search: params.search, active, page }),
+    getCurrentUser(),
+  ]);
+
+  const { items, total, pageSize } = suppliersResult;
   const canEdit = user?.role === "ADMIN";
   return (
     <>
       <PageHeader
         title="Suppliers"
-        description="Maintain supplier contacts; purchases, payables, and payments remain separate later workflows."
+        description="Manage suppliers, vendor contacts, and purchasing details."
         actionHref={canEdit ? "/suppliers/new" : undefined}
         actionLabel="New supplier"
       />
@@ -73,6 +78,7 @@ export default async function SuppliersPage({
                           <Link
                             className="btn-secondary text-xs"
                             href={`/suppliers/${item.id}/edit`}
+                            prefetch={false}
                           >
                             Edit
                           </Link>
