@@ -95,7 +95,13 @@ button, input, select, textarea, a {
     box-shadow: var(--card-shadow-hover);
   }
   .card-stat {
-    @apply card card-hover p-5 cursor-default;
+    @apply rounded-xl border bg-white p-5 cursor-default;
+    border-color: var(--card-border);
+    box-shadow: var(--card-shadow);
+    transition: box-shadow 0.18s ease;
+  }
+  .card-stat:hover {
+    box-shadow: var(--card-shadow-hover);
   }
 
   /* ── Inputs ──────────────────────────────────────────────── */
@@ -233,7 +239,10 @@ button, input, select, textarea, a {
 
   /* ── Form section ────────────────────────────────────────── */
   .form-section {
-    @apply card divide-y divide-slate-100;
+    @apply rounded-xl border bg-white divide-y divide-slate-100;
+    border-color: var(--card-border);
+    box-shadow: var(--card-shadow);
+    transition: box-shadow 0.18s ease;
   }
   .form-section-body {
     @apply grid gap-5 p-6 sm:grid-cols-2;
