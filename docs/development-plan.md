@@ -60,6 +60,9 @@ On 2026-09-30, both development database connections succeeded, the reviewed ini
 - Responsive authenticated shell and server-rendered, paginated Category, UOM, Product, Supplier, and Customer management.
 - Admin-only mutations, deactivation policy, protected system Walk-in Customer, category-cycle prevention, referenced-UOM scale protection, normalized SKUs, Decimal-safe defaults, and validated JSON specifications.
 - New reviewed/applied migration `20260930020000_phase_1b_auth_master_data` plus authentication and master-data unit/integration coverage.
+- UI/UX polish completed across all Phase 1B views (Inter & Plus Jakarta Sans typography, refined modern ERP palette, glass card stats, responsive sidebar, polished forms, data tables, and search/filter bars).
+- Vercel production deployment verified and live at `https://stockflow-brown-mu.vercel.app` with `DATABASE_URL`, `AUTH_SECRET`, and `BETTER_AUTH_URL` configured.
+- First Admin initialized via `npm run admin:bootstrap`.
 
 Phase 2 is not started. Its exact purchase draft/posting slice must be planned before implementation.
 

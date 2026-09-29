@@ -47,6 +47,10 @@ export async function bootstrapFirstAdmin(
 
       return user;
     },
-    { isolationLevel: "Serializable" },
+    {
+      isolationLevel: "Serializable",
+      maxWait: 15_000,
+      timeout: 30_000,
+    },
   );
 }
