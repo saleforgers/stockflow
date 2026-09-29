@@ -60,24 +60,14 @@ const links = [
   },
 ] as const;
 
-function NavLinks({ onClick }: { onClick?: () => void }) {
+function NavLinks() {
   return (
     <nav className="space-y-0.5" aria-label="Primary navigation">
       {links.map(({ label, href, icon }) => (
         <Link
           key={href}
           href={href}
-          onClick={onClick}
-          className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150"
-          style={{ color: "var(--sidebar-text)" }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.color = "var(--sidebar-text-hover)";
-            (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.06)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.color = "var(--sidebar-text)";
-            (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
-          }}
+          className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/[0.06] transition-all duration-150"
         >
           {icon}
           <span>{label}</span>
