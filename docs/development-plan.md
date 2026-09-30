@@ -68,11 +68,11 @@ On 2026-09-30, both development database connections succeeded, the reviewed ini
 
 - **Performance diagnostics & root causes**:
   - Baseline page TTFB: Dashboard ~3,400ms, Products ~2,000ms, Categories/Units/Suppliers/Customers ~1,370–1,530ms.
-  - *Compute/DB region divergence*: Vercel functions were defaulted to `iad1` (Washington, D.C.), while Supabase PostgreSQL is in `ap-northeast-1` (Tokyo, Japan). Each network hop added ~180ms round-trip latency.
-  - *Per-request auth duplication*: `ProtectedLayout` and each page independently called `getCurrentUser()`, running 4 un-cached sequential database queries (`getSession` + `prisma.user.findUnique`) per request.
-  - *Sequential page queries*: Page queries (`list*`, options, auth) executed sequentially instead of concurrently. Products page also queried unused units and suppliers on list view.
-  - *Serverless singleton handling*: `src/lib/db/prisma.ts` only cached client on `globalThis` in development, preventing connection pool reuse across warm production lambdas.
-  - *Row action prefetching*: Table rows generated excessive concurrent serverless SSR prefetch requests.
+  - _Compute/DB region divergence_: Vercel functions were defaulted to `iad1` (Washington, D.C.), while Supabase PostgreSQL is in `ap-northeast-1` (Tokyo, Japan). Each network hop added ~180ms round-trip latency.
+  - _Per-request auth duplication_: `ProtectedLayout` and each page independently called `getCurrentUser()`, running 4 un-cached sequential database queries (`getSession` + `prisma.user.findUnique`) per request.
+  - _Sequential page queries_: Page queries (`list*`, options, auth) executed sequentially instead of concurrently. Products page also queried unused units and suppliers on list view.
+  - _Serverless singleton handling_: `src/lib/db/prisma.ts` only cached client on `globalThis` in development, preventing connection pool reuse across warm production lambdas.
+  - _Row action prefetching_: Table rows generated excessive concurrent serverless SSR prefetch requests.
 
 - **Optimizations implemented**:
   - Added `vercel.json` configuring Vercel Functions compute region to Tokyo (`hnd1`), co-locating functions with the Supabase database (`ap-northeast-1`).
@@ -87,17 +87,21 @@ On 2026-09-30, both development database connections succeeded, the reviewed ini
   - Implemented client `NavLinks` with active route highlighting (`bg-indigo-600/25 text-indigo-300 font-semibold border-l-2 border-indigo-400`).
   - Reduced excessive empty-state vertical spacing from `py-16` to `py-10`.
 
-Phase 2 is not started. Its exact purchase draft/posting slice must be planned before implementation.
+Phase 2 is implemented in the repository. Release acceptance remains pending until the reviewed migration is applied to the configured disposable development database and the complete database integration suite passes there; the implementation must not be described as release-complete before that verification.
 
 ## Phase 2 — Purchasing and supplier ledger
 
-- Draft purchase, lot, and line creation.
-- Atomic purchase posting service.
-- Purchase cost layers and inbound movements.
-- Supplier payable entry.
-- Supplier payments, allocations, and partial-payment behavior.
-- Purchase returns after return-settlement rules are approved.
-- Reconciliation tests for purchase totals, lot availability, and payable.
+- Implemented draft purchase, multi-lot, and multi-line creation/editing with server-authoritative decimal totals.
+- Implemented a serializable, idempotent atomic purchase posting service.
+- Implemented purchase cost layers and immutable inbound stock movements.
+- Implemented supplier payable entries and deterministic supplier statements.
+- Implemented posted supplier payments, partial/repeated/multi-purchase allocations, and fully/partly unallocated advances.
+- Implemented locked purchase-return posting against eligible cost-layer availability; returns create stock OUT movements and supplier credit without implying cash settlement.
+- Implemented purchase/payment/return reconciliation and concurrency integration tests in `tests/integration/purchasing.integration.test.ts`.
+- Added `20260930030000_phase_2_transaction_guardrails` for typed source semantics, posted purchase total reconciliation, supplier-allocation invariants, and return source matching.
+- Added modest list, draft entry/edit, detail/post, supplier payment, purchase return, and supplier account UI.
+
+Verification status at implementation handoff: formatter/lint, TypeScript, unit tests, Prisma validation, and production build pass. The integration suite could not reach the configured Supabase PostgreSQL host from the implementation sandbox (`EACCES` on port 5432), so migration deployment and real-database test execution remain the explicit acceptance gate.
 
 The UI should remain operational and modest: list, detail, draft entry, review, and post. Do not build broad analytics here.
 

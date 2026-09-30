@@ -2,7 +2,7 @@
 
 StockFlow is a general-purpose inventory, purchasing, sales, payment, expense, and party-ledger system for a trading business.
 
-Repository status: **Phase 1B complete — ready for Phase 2 planning**. Authentication, the responsive application shell, and Category/UOM/Product/Supplier/Customer master data are implemented. Transaction posting, stock allocation, ledgers, payments, expenses, analytics, and reports remain intentionally out of scope.
+Repository status: **Phase 2 implemented — production migration and deployment verification pending**. Authentication, the responsive application shell, master data, purchase drafts/posting, inbound inventory cost layers, supplier payable, supplier payments/allocations, purchase returns, and supplier account visibility are implemented. Sales, customer-ledger, FIFO sale allocation, expenses, analytics, and reports remain intentionally out of scope.
 
 ## Foundation documentation
 
@@ -37,7 +37,7 @@ npm run admin:bootstrap
 
 On PowerShell, set those three values as process environment variables before running the command. Remove them immediately afterward. The command never prints the password and refuses to create a bootstrap Admin once any Admin exists. StockFlow has no self-registration screen.
 
-Authenticated routes are `/`, `/products`, `/categories`, `/units`, `/suppliers`, and `/customers`; `/login` is public. In Phase 1B all authenticated roles may view master data, while only `ADMIN` may mutate it.
+Authenticated routes include `/`, `/products`, `/categories`, `/units`, `/suppliers`, `/customers`, `/purchases`, and `/supplier-payments/new`; `/login` is public. All authenticated roles may view master data and Phase 2 records. Only `ADMIN` may mutate master data; active `ADMIN` and `MANAGER` users may create and post Phase 2 transactions.
 
 Use `npm run build` for a production build and `npm start` to serve that build. The standard repository verification command is `npm run check`; database-backed verification additionally uses `npm run db:migrate:status`, `npm run db:verify`, and `npm run test:integration`.
 
@@ -65,7 +65,7 @@ npm run test:integration
 npm run db:migrate:status
 ```
 
-The reviewed baseline is [the initial migration](prisma/migrations/20260930000100_init/migration.sql). It was generated from an empty database and already incorporates `prisma/sql/initial-integrity-constraints.sql`. Phase 1B adds `20260930020000_phase_1b_auth_master_data` for Better Auth tables and User compatibility. Do not execute the supplement separately, use `prisma db push`, or edit either applied migration.
+The reviewed baseline is [the initial migration](prisma/migrations/20260930000100_init/migration.sql). It was generated from an empty database and already incorporates `prisma/sql/initial-integrity-constraints.sql`. Phase 1B adds `20260930020000_phase_1b_auth_master_data` for Better Auth tables and User compatibility. Phase 2 adds `20260930030000_phase_2_transaction_guardrails` for purchase-return uniqueness, typed source semantics, purchase-total reconciliation, allocation limits, and return source matching. Do not execute the supplement separately, use `prisma db push`, or edit applied migrations.
 
 `prisma migrate dev` needs a shadow database for future schema changes. Use it only with a development role that can create the shadow database or with an explicitly configured disposable shadow database. Applying the already-reviewed initial migration to a clean development project uses `prisma migrate deploy` and does not need a shadow database.
 

@@ -4,7 +4,7 @@
 
 StockFlow V1 is a web-based inventory and commercial-record system for a general trading business. It must support heterogeneous products without embedding assumptions about iron, sheets, furniture, interior goods, or any other single category.
 
-Phase 0 produced the approved architecture and data model. Phase 1A established the validated technical/cloud foundation, and Phase 1B added secure authentication plus master-data management. Transaction posting, inventory allocation, ledgers, payments, expenses, dashboards, and reporting remain deferred to explicitly authorized later phases. StockFlow uses GitHub, Vercel, and Supabase-managed PostgreSQL; Supabase is a database provider only, and all business access remains server-side through Prisma.
+Phase 0 produced the approved architecture and data model. Phase 1A established the validated technical/cloud foundation, and Phase 1B added secure authentication plus master-data management. Phase 2 implements purchase drafts, atomic purchase posting, inbound inventory cost layers/movements, supplier payable, supplier payments/allocations, supplier account visibility, and purchase returns. Sales, customer-ledger, FIFO sale allocation, expenses, dashboards, and reporting remain deferred to explicitly authorized later phases. StockFlow uses GitHub, Vercel, and Supabase-managed PostgreSQL; Supabase is a database provider only, and all business access remains server-side through Prisma.
 
 Development/Preview and Production use independent Supabase projects and credentials. Preview deployments must use the development project by default. Database URLs are server secrets and must never be exposed as `NEXT_PUBLIC_` variables. Docker/local PostgreSQL is optional developer tooling, not a prerequisite.
 
@@ -18,6 +18,8 @@ Development/Preview and Production use independent Supabase projects and credent
 V1 authorization will use a simple role on the user record. Fine-grained permissions are not required yet.
 
 Phase 1B locks master-data mutations to Admin. Manager and Staff roles remain valid and can view authenticated master data, but broader mutation permissions are not inferred. Self-registration is disabled; the first Admin is created by a replay-safe CLI bootstrap.
+
+Phase 2 operational mutations are available to active Admin and Manager users. Staff remains read-only for Phase 2 because no broader Staff transaction policy has been approved. Every Phase 2 Server Action repeats authorization and validation server-side.
 
 ## 3. Functional requirements
 

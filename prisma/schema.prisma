@@ -536,6 +536,7 @@ model PurchaseReturnLine {
   inventoryLot   InventoryLot   @relation(fields: [inventoryLotId], references: [id], onDelete: Restrict)
   stockMovement  StockMovement?
 
+  @@unique([purchaseReturnId, purchaseLineId])
   @@index([purchaseReturnId])
   @@index([purchaseLineId])
   @@index([inventoryLotId])

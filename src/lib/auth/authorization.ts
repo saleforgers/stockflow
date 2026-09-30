@@ -22,3 +22,7 @@ export function assertRole(user: AuthorizedUser, allowedRoles: readonly UserRole
 export function assertMasterDataAdmin(user: AuthorizedUser): void {
   assertRole(user, ["ADMIN"]);
 }
+
+export function assertOperationalWriter(user: AuthorizedUser): void {
+  assertRole(user, ["ADMIN", "MANAGER"]);
+}
