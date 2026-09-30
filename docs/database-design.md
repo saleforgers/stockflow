@@ -286,3 +286,17 @@ Implementation must include automated checks that compare:
 - Posted document totals against line totals.
 
 Any discrepancy is an error to investigate, not a value to silently overwrite.
+
+## 18. Phase 2 implementation
+
+Phase 2 uses the schema designed above without adding parallel balance or stock fields. Draft purchase services issue independent `PUR` and `LOT` numbers from the existing PostgreSQL sequences, validate active supplier/product/UOM references, calculate every line with decimal arithmetic, and persist authoritative subtotal/additional-charge/total values. Draft replacement is permitted only while the header remains `DRAFT`.
+
+Purchase posting locks the header and runs at serializable isolation. One transaction refreshes historical party/product/UOM snapshots, creates one purchase-origin `InventoryLot` and one `PURCHASE`/`IN` movement per line, creates the `PURCHASE`/`INCREASE` supplier-ledger entry, and transitions the header to `POSTED`. Source uniqueness makes a completed posting replay-safe; drafts have no inventory or ledger effect.
+
+Supplier payments are separate posted `Payment` records. Their full amount creates one `PAYMENT`/`DECREASE` ledger entry, while allocation rows explain settlement against posted purchases. Allocations may cover multiple purchases and may consume only part of a payment; the remainder is an on-account supplier advance. Locked target purchases and serializable execution protect allocation limits and update `Purchase.amountPaidCached` / `paymentStatus` from posted allocations plus posted purchase-return credit.
+
+Purchase returns lock their original cost-layer rows, reject quantities above current availability, decrease the availability cache, and create immutable `PURCHASE_RETURN`/`OUT` movements plus `PURCHASE_RETURN`/`DECREASE` supplier-ledger entries. They do not rewrite the original purchase and do not represent a cash refund.
+
+Migration `20260930030000_phase_2_transaction_guardrails` adds database checks for Phase 2 typed source semantics and deferred cross-row triggers for supplier allocation limits/party ownership, posted purchase total reconciliation, and purchase-return source matching. Application services remain responsible for authorization, active-reference validation, deterministic locking, and aggregate return eligibility.
+
+Phase 2 integration coverage is in `tests/integration/purchasing.integration.test.ts`, including drafts, fractional UOM rules, atomic/idempotent posting, reconciliation, full/partial/repeated/multi-document/unallocated payments, returns, authorization, rollback behavior, and concurrent return attempts. The migration and suite must pass on the disposable development database before Phase 2 is marked release-complete.
