@@ -132,9 +132,11 @@ Development acceptance command after confirming both URLs point to the disposabl
 
 ## Phase 4 — Adjustments, expenses, and operational controls
 
+Miscellaneous Expenses Management is implemented in code as the first authorized Phase 4 slice. It includes expense-category administration, append-only paid expense posting, audited voiding, history filters and reporting-ready totals. Development database acceptance and production deployment remain pending. Inventory quantities, stock movements, purchase lots, and FIFO costs are intentionally unaffected; landed-cost allocation remains out of scope.
+
 - Opening inventory import/posting workflow.
 - Authorized stock adjustments, damage, loss, and correction reasons.
-- Expense categories and expense entry.
+- Expense categories and expense entry. (Implemented in code; development acceptance pending.)
 - Explicit reversal workflows and role checks.
 - Reconciliation/health checks surfaced to administrators.
 

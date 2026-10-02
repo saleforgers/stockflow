@@ -2,7 +2,7 @@
 
 StockFlow is a general-purpose inventory, purchasing, sales, payment, expense, and party-ledger system for a trading business.
 
-Repository status: **Phase 2 complete and deployed; Phase 3 implemented, development database acceptance pending**. The project owner confirmed the deployed Phase 2 baseline on 2026-10-01. Phase 3 adds sales invoice drafts/posting, immutable FIFO allocations, customer receipts/advances and ledger screens, and original-cost sale returns. Expenses, analytics, and reporting remain deferred. Phase 3 has not been deployed to production.
+Repository status: **Phase 2 complete and deployed; Phase 3 and Miscellaneous Expenses implemented, production deployment pending**. The project owner confirmed the deployed Phase 2 baseline on 2026-10-01. Phase 3 adds sales invoice drafts/posting, immutable FIFO allocations, customer receipts/advances and ledger screens, and original-cost sale returns. The Expenses module adds operating-expense categories, append-only posting, audited voiding, filtering, and reporting-ready totals without changing inventory or FIFO costs. Full analytics and reporting remain deferred; Phase 3 and Expenses have not been deployed to production.
 
 ## Foundation documentation
 

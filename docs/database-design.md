@@ -220,6 +220,8 @@ The effective line revenue used for returns and profit is `netAmount - invoiceDi
 
 Expense categories and payment methods are reference tables. V1 Expense rows represent paid expenses. They may point to a supplier or purchase lot for context, but this reference does not create a supplier ledger entry and does not change a cost layer. Unpaid/accrued expenses are out of scope.
 
+The Expenses module posts paid operating expenses directly as append-only `POSTED` records with shared payment methods and `EXP-` document numbers. `ADMIN` users manage active/inactive categories; `ADMIN` and `MANAGER` users post or void expenses. Voiding preserves the original record, actor, timestamp, and reason. Expense queries support date, category, payment method, and text filters, with posted-only totals for future Net Operating Profit reporting. Expenses never create stock movements, change inventory lots, or alter purchase/FIFO unit cost. Landed-cost allocation remains out of scope.
+
 ## 14. Required database constraints
 
 The Prisma schema expresses basic keys, uniqueness, types, and indexes. The initial SQL migration must additionally implement:

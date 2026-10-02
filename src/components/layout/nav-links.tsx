@@ -67,6 +67,11 @@ const links = [
     ),
   },
   {
+    label: "Expenses",
+    href: "/expenses",
+    icon: <span aria-hidden="true">₨</span>,
+  },
+  {
     label: "Categories",
     href: "/categories",
     icon: (

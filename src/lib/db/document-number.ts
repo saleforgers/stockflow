@@ -1,7 +1,13 @@
 import type { BusinessTransaction } from "@/lib/db/transaction";
 
 export type DocumentNumberKind =
-  "purchase" | "purchaseLot" | "payment" | "purchaseReturn" | "salesInvoice" | "saleReturn";
+  | "purchase"
+  | "purchaseLot"
+  | "payment"
+  | "purchaseReturn"
+  | "salesInvoice"
+  | "saleReturn"
+  | "expense";
 
 const prefixes: Record<DocumentNumberKind, string> = {
   purchase: "PUR",
@@ -10,6 +16,7 @@ const prefixes: Record<DocumentNumberKind, string> = {
   purchaseReturn: "PRT",
   salesInvoice: "INV",
   saleReturn: "SRT",
+  expense: "EXP",
 };
 
 export async function nextDocumentNumber(
@@ -39,6 +46,9 @@ export async function nextDocumentNumber(
     case "purchaseReturn":
       rows =
         await transaction.$queryRaw`SELECT nextval('"PurchaseReturn_internal_number_seq"') AS value`;
+      break;
+    case "expense":
+      rows = await transaction.$queryRaw`SELECT nextval('"Expense_internal_number_seq"') AS value`;
       break;
   }
 

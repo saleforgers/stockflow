@@ -22,11 +22,8 @@ export const foundationPaymentMethods = [
 export const foundationExpenseCategories = [
   "Freight / Carriage",
   "Loading / Unloading",
-  "Transportation",
   "Medical",
   "Grocery",
-  "Utilities",
-  "Miscellaneous",
 ] as const;
 
 export const WALK_IN_CUSTOMER_ID = "00000000-0000-4000-8000-000000000001";
@@ -62,11 +59,13 @@ export async function seedFoundationData(prisma: PrismaClient): Promise<void> {
       }
 
       for (const name of foundationExpenseCategories) {
-        await transaction.expenseCategory.upsert({
-          where: { name },
-          update: { isActive: true },
-          create: { name, isActive: true },
+        const existing = await transaction.expenseCategory.findFirst({
+          where: { name: { equals: name, mode: "insensitive" } },
+          select: { id: true },
         });
+        if (!existing) {
+          await transaction.expenseCategory.create({ data: { name, isActive: true } });
+        }
       }
 
       await transaction.customer.upsert({

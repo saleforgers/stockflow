@@ -115,6 +115,7 @@ model User {
   supplierLedgerCreated   SupplierLedgerEntry[] @relation("SupplierLedgerCreatedBy")
   customerLedgerCreated   CustomerLedgerEntry[] @relation("CustomerLedgerCreatedBy")
   expensesCreated         Expense[]             @relation("ExpenseCreatedBy")
+  expensesVoided          Expense[]             @relation("ExpenseVoidedBy")
 }
 
 model Session {
@@ -825,33 +826,45 @@ model ExpenseCategory {
   updatedAt   DateTime @updatedAt @db.Timestamptz(6)
 
   expenses Expense[]
+
+  @@index([isActive, name])
 }
 
 model Expense {
-  id                String   @id @default(uuid()) @db.Uuid
-  expenseNumber     String   @unique
-  expenseCategoryId String   @db.Uuid
-  expenseDate       DateTime @db.Date
-  amount            Decimal  @db.Decimal(18, 2)
-  currencyCode      String   @default("PKR") @db.Char(3)
+  requestKey        String         @unique @db.Uuid
+  id                String         @id @default(uuid()) @db.Uuid
+  expenseNumber     String         @unique
+  status            DocumentStatus @default(POSTED)
+  expenseCategoryId String         @db.Uuid
+  expenseDate       DateTime       @db.Date
+  amount            Decimal        @db.Decimal(18, 2)
+  currencyCode      String         @default("PKR") @db.Char(3)
   description       String
-  supplierId        String?  @db.Uuid
-  purchaseLotId     String?  @db.Uuid
-  paymentMethodId   String   @db.Uuid
+  payeeName         String?
+  supplierId        String?        @db.Uuid
+  purchaseLotId     String?        @db.Uuid
+  paymentMethodId   String         @db.Uuid
   reference         String?
   notes             String?
-  createdById       String   @db.Uuid
-  createdAt         DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime @updatedAt @db.Timestamptz(6)
+  createdById       String         @db.Uuid
+  postedAt          DateTime       @db.Timestamptz(6)
+  voidedAt          DateTime?      @db.Timestamptz(6)
+  voidedById        String?        @db.Uuid
+  voidReason        String?
+  createdAt         DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(6)
 
   expenseCategory ExpenseCategory @relation(fields: [expenseCategoryId], references: [id], onDelete: Restrict)
   supplier        Supplier?       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   purchaseLot     PurchaseLot?    @relation(fields: [purchaseLotId], references: [id], onDelete: Restrict)
   paymentMethod   PaymentMethod   @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
   createdBy       User            @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  voidedBy        User?           @relation("ExpenseVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
 
   @@index([expenseDate, expenseCategoryId])
+  @@index([status, expenseDate])
   @@index([supplierId, expenseDate])
   @@index([purchaseLotId])
   @@index([paymentMethodId])
+  @@index([createdAt])
 }
