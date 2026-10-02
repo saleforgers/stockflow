@@ -2,7 +2,7 @@
 
 StockFlow is a general-purpose inventory, purchasing, sales, payment, expense, and party-ledger system for a trading business.
 
-Repository status: **Phase 2 implemented — production migration and deployment verification pending**. Authentication, the responsive application shell, master data, purchase drafts/posting, inbound inventory cost layers, supplier payable, supplier payments/allocations, purchase returns, and supplier account visibility are implemented. Sales, customer-ledger, FIFO sale allocation, expenses, analytics, and reports remain intentionally out of scope.
+Repository status: **Phase 2 complete and deployed; Phase 3 implemented, development database acceptance pending**. The project owner confirmed the deployed Phase 2 baseline on 2026-10-01. Phase 3 adds sales invoice drafts/posting, immutable FIFO allocations, customer receipts/advances and ledger screens, and original-cost sale returns. Expenses, analytics, and reporting remain deferred. Phase 3 has not been deployed to production.
 
 ## Foundation documentation
 
@@ -37,7 +37,7 @@ npm run admin:bootstrap
 
 On PowerShell, set those three values as process environment variables before running the command. Remove them immediately afterward. The command never prints the password and refuses to create a bootstrap Admin once any Admin exists. StockFlow has no self-registration screen.
 
-Authenticated routes include `/`, `/products`, `/categories`, `/units`, `/suppliers`, `/customers`, `/purchases`, and `/supplier-payments/new`; `/login` is public. All authenticated roles may view master data and Phase 2 records. Only `ADMIN` may mutate master data; active `ADMIN` and `MANAGER` users may create and post Phase 2 transactions.
+Authenticated routes include `/`, `/products`, `/categories`, `/units`, `/suppliers`, `/customers`, `/purchases`, `/supplier-payments/new`, `/sales`, `/customer-ledger`, `/customers/[id]/account`, and `/customer-receipts/new`; `/login` is public. All authenticated roles may view master data and Phase 2/3 records. Only `ADMIN` may mutate master data; active `ADMIN` and `MANAGER` users may create and post operational transactions.
 
 Use `npm run build` for a production build and `npm start` to serve that build. The standard repository verification command is `npm run check`; database-backed verification additionally uses `npm run db:migrate:status`, `npm run db:verify`, and `npm run test:integration`.
 

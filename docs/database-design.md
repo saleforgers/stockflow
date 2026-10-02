@@ -1,5 +1,17 @@
 # StockFlow V1 Database Design
 
+## Phase 3 implementation supplement — 2026-10-01
+
+Migration `20261001010000_phase_3_sales_guardrails` adds nullable unique UUID `requestKey` columns to the existing Payment, SaleReturn, and CustomerPaymentAllocation models. Legacy and supplier rows remain null. The customer receipt/invoice pair uniqueness becomes a nonunique lookup index so successive partial advance allocations can be appended. Invoice posting uses the invoice UUID/status as its replay identity; immediate receipt keys use that UUID. Receipts, advance allocation commands, and returns serialize request-key retries with a transaction advisory lock, and durable unique indexes prevent duplicate effects.
+
+Sales transactions use serializable isolation with bounded retries only for rollback-confirmed serialization/deadlock conflicts. Posting locks the invoice, then inventory rows by product and lot ID; allocation reads locked available layers by `receivedAt`, then lot ID. All line allocations, outbound movements, cost-layer quantities, receivables, posting status, and any immediate receipt commit together. Allocation snapshots never change after posting. Later backdated purchases do not reallocate sales.
+
+Customer receipt allocation locks invoices in sorted ID order; existing advance allocation locks invoice then receipt. Amounts cannot exceed receipt availability or invoice outstanding after posted returns/allocations. A receipt produces one ledger credit for its full amount regardless of allocations; allocating an advance creates no second ledger credit. Cached payment status includes return credits and is never the party-balance source. Posted allocations are append-only events; subsequent portions of the same advance can be allocated to the same invoice with new request keys.
+
+Sale returns lock the original invoice and affected layers, restore unreturned original allocations in approved FIFO order, retain unit-cost snapshots, and calculate cumulative proportional credit after both discounts. SQL constraints/triggers verify quantity/cost/source/movement agreement and posted totals, enforce customer allocation ownership/limits and walk-in full settlement, and reject updates/deletes to posted sales facts. Settlement cache updates remain permitted. Fully discounted invoices and zero-credit returns retain zero-impact SALE/SALE_RETURN ledger events; all payments and other ledger entries remain positive. Returns can leave customer credit balances; no automatic cash refund occurs.
+
+No new tables, browser database access, Data API grants, or security-definer functions are introduced. Trigger functions use invoker privileges and revoke PUBLIC execution. Existing Phase 1/2 SQL and runtime services remain intact. Development migration/integration acceptance is required before production deployment.
+
 ## 1. Design goals
 
 The model prioritizes traceability, correct concurrent posting, historical accuracy, and a practical V1 scope. Supabase-managed PostgreSQL is the authoritative data store and Prisma is the only application ORM/database access path. The executable schema is in `prisma/schema.prisma`; SQL-only constraints in `prisma/sql/initial-integrity-constraints.sql` are incorporated into the reviewed initial migration. The supplement is not an independently applied migration.

@@ -158,6 +158,12 @@ Phase 2 operational mutations are available to active Admin and Manager users. S
 
 ## 8. Decisions still required from the business
 
+### Phase 3 return decision approved 2026-10-01
+
+For a partial sale return spanning original allocations, restore those allocations in their original FIFO order (`receivedAt`, then inventory lot ID), limited by each allocation's unreturned quantity. Always use the original allocated unit cost. Credit the cumulative proportional line net selling amount after both line and allocated invoice discounts, less previously credited amounts, rounded to PKR cents. The final return clears any rounding remainder exactly. This decision was approved by the project owner during Phase 3 implementation.
+
+Phase 3 keeps the existing operational authorization boundary: active Admin and Manager may mutate; Staff may read. Fixed PKR discounts implement the approved monetary model. Percentage-entry conveniences remain deferred.
+
 No stock, money, numbering, or retention-policy decisions remain open for the database foundation. Deployment hardening must still define production backup retention and confirm any jurisdiction-specific legal retention duration.
 
 ## 9. Acceptance boundary for Phase 0

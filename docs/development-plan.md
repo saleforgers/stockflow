@@ -107,6 +107,22 @@ The UI should remain operational and modest: list, detail, draft entry, review, 
 
 ## Phase 3 — Sales, FIFO allocation, and customer ledger
 
+### Implementation update — 2026-10-01
+
+The project owner confirmed that Phase 2 is complete and deployed, with production migrations current. The earlier Phase 2 implementation handoff/acceptance notes above are retained as historical context and are superseded by that confirmation.
+
+Phase 3 is implemented for review: multi-line invoice drafts/editing and decimal discounts/totals; serializable atomic FIFO posting with cost-layer locks and immutable cost snapshots; customer receivables, partial receipts, advances and later allocation; original-allocation sale returns; Sales and Customer Ledger navigation and screens. Admin/Manager mutate and Staff reads using existing session and role checks. Walk-in settlement is atomic with posting.
+
+Added `20261001010000_phase_3_sales_guardrails`, reusing all existing Phase 3 models and adding nullable unique request keys to Payment, SaleReturn, and CustomerPaymentAllocation. The customer receipt/invoice pair now permits multiple immutable allocation events for successive partial advances. SQL checks reconcile sales/allocation movements, enforce customer ownership and allocation limits, and protect posted sales audit history. Fully discounted documents preserve zero-impact ledger entries; receipts remain strictly positive.
+
+The approved partial-return order and cumulative credit rounding rule are recorded in `docs/requirements.md`. Tests include final-stock concurrency, duplicate posting, transactional rollback, multi-lot FIFO, partial receipts/advances, walk-in settlement, role rejection, and original-cost returns. Append-only integration fixtures remain tagged in the disposable test database; tests never disable history protection or reset a database.
+
+Development database acceptance remains pending: this worktree has neither development connection URLs nor the disposable-target marker. No Phase 3 migration has been applied to any database. Production migration/deployment is explicitly outside this task. Apply the reviewed migration and run the Phase 3 integration file against the confirmed disposable development target before approving production deployment.
+
+Local verification: repository lint passes, TypeScript passes after correcting the new fixture, unit tests pass (6 files / 22 tests), Prisma schema validation passes, and the production build passes using isolated build-only localhost placeholders. Changed TypeScript/Markdown files pass Prettier. Repository-wide formatting fails on 131 untouched baseline files; those files were not reformatted as part of Phase 3. Database integration execution and migration validation are blocked by missing configured development credentials, rather than claimed as passing.
+
+Development acceptance command after confirming both URLs point to the disposable development database: `npx vitest run --config vitest.integration.config.ts tests/integration/sales.integration.test.ts`. Apply the reviewed migration using the existing controlled Prisma migration workflow first. The suite deliberately retains tagged append-only posting fixtures rather than deleting history.
+
 - Draft invoice and line entry with approved discount rules.
 - Transaction-safe FIFO allocator with row locking.
 - Atomic invoice posting, lot allocations, outbound movements, and receivable entry.

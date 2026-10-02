@@ -543,6 +543,7 @@ model PurchaseReturnLine {
 }
 
 model SaleReturn {
+  requestKey           String?        @unique @db.Uuid
   id                   String         @id @default(uuid()) @db.Uuid
   returnNumber         String         @unique
   salesInvoiceId       String         @db.Uuid
@@ -700,6 +701,7 @@ model PaymentMethod {
 }
 
 model Payment {
+  requestKey      String?        @unique @db.Uuid
   id              String         @id @default(uuid()) @db.Uuid
   paymentNumber   String         @unique
   kind            PaymentKind
@@ -748,6 +750,7 @@ model SupplierPaymentAllocation {
 }
 
 model CustomerPaymentAllocation {
+  requestKey     String?  @unique @db.Uuid
   id             String   @id @default(uuid()) @db.Uuid
   paymentId      String   @db.Uuid
   salesInvoiceId String   @db.Uuid
@@ -757,7 +760,7 @@ model CustomerPaymentAllocation {
   payment      Payment      @relation(fields: [paymentId], references: [id], onDelete: Restrict)
   salesInvoice SalesInvoice @relation(fields: [salesInvoiceId], references: [id], onDelete: Restrict)
 
-  @@unique([paymentId, salesInvoiceId])
+  @@index([paymentId, salesInvoiceId])
   @@index([salesInvoiceId])
 }
 

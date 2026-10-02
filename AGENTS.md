@@ -4,7 +4,7 @@
 
 StockFlow is a general-purpose inventory, purchasing, sales, payment, expense, and party-ledger system for a trading business. It must support metal products, interior products, and future categories without category-specific assumptions in core tables.
 
-The repository status is **Phase 2 implemented — database acceptance verification pending**. Secure database-backed authentication, the application shell, first-Admin bootstrap, master data, purchasing, inbound inventory cost layers/movements, supplier payable, supplier payments/allocations, and purchase returns are implemented. Do not build sales, customer-ledger, FIFO sale allocation, expense, dashboard, or reporting workflows until explicitly authorized. Phase 2 must not be marked release-complete until its migration and full integration suite pass against the configured disposable development database.
+The baseline is **Phase 2 complete and deployed**, confirmed by the project owner on 2026-10-01. Earlier Phase 2 acceptance notes are historical. Phase 3 sales, FIFO allocation, customer ledger/receipts, and original-cost sale returns are now authorized and implemented; development database acceptance is pending. Preserve existing Phase 1/2 behavior. Do not build expense, dashboard, or reporting workflows until explicitly authorized. Do not deploy Phase 3 or migrate production during implementation review.
 
 ## Required stack
 
