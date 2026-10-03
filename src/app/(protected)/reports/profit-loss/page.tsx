@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/session";
 import { currentBusinessDate, formatPkr } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { SummaryCards } from "@/components/ui/summary-cards";
+import { decimal } from "@/lib/decimal/decimal";
 import { profitAndLoss } from "@/modules/reports/queries";
 export default async function Page({
   searchParams,
@@ -39,10 +40,18 @@ export default async function Page({
       </form>
       <SummaryCards
         items={[
-          { label: "Net Sales", value: formatPkr(p.netSales) },
-          { label: "Gross Profit", value: formatPkr(p.grossProfit) },
-          { label: "Expenses", value: formatPkr(p.expenses) },
-          { label: "Net Profit", value: formatPkr(p.netProfit) },
+          { label: "Net Sales", value: formatPkr(p.netSales), tone: "income", direction: "up" },
+          {
+            label: "Gross Profit",
+            value: formatPkr(p.grossProfit),
+            tone: decimal(p.grossProfit).isNegative() ? "expense" : "income",
+          },
+          { label: "Expenses", value: formatPkr(p.expenses), tone: "expense", direction: "down" },
+          {
+            label: "Net Profit",
+            value: formatPkr(p.netProfit),
+            tone: decimal(p.netProfit).isNegative() ? "expense" : "income",
+          },
         ]}
       />
       <div className="card overflow-x-auto">

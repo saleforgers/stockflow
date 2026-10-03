@@ -65,13 +65,19 @@ export default async function ProductDetailPage({
           {
             label: "On Hand",
             value: formatQuantity(current?.onHand ?? "0") + " " + product.inventoryUnit.code,
+            tone: "stock",
           },
           {
             label: "Selling Price",
             value: product.defaultSellingPrice ? formatPkr(product.defaultSellingPrice) : "—",
+            tone: "income",
           },
-          { label: "Inventory Value", value: formatPkr(current?.value ?? "0") },
-          { label: "Low Stock Threshold", value: formatQuantity(product.lowStockThreshold) },
+          { label: "Inventory Value", value: formatPkr(current?.value ?? "0"), tone: "stock" },
+          {
+            label: "Low Stock Threshold",
+            value: formatQuantity(product.lowStockThreshold),
+            tone: "warning",
+          },
         ]}
       />
       <nav className="flex flex-wrap gap-3">

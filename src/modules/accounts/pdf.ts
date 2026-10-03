@@ -57,5 +57,6 @@ export async function statementPdf(request: Request, id: string, kind: "customer
   return pdfResponse(
     bytes,
     `${customer ? "Customer" : "Supplier"}-Statement-${currentBusinessDate()}.pdf`,
+    q.get("inline") === "1",
   );
 }

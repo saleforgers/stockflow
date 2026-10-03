@@ -11,7 +11,7 @@ import { invoiceStatus } from "@/lib/labels";
 import { invoiceSummary } from "@/modules/sales/invoice-summary";
 import { lotLabel } from "@/modules/inventory/queries";
 import { SummaryCards } from "@/components/ui/summary-cards";
-import { PrintButton } from "@/components/ui/print-button";
+import { PdfActions } from "@/components/ui/pdf-actions";
 export default async function Page({
   params,
   searchParams,
@@ -43,10 +43,7 @@ export default async function Page({
         </p>
       )}
       <div className="flex flex-wrap gap-3 print:hidden">
-        <Link className="btn-secondary" href={`/sales/${id}/pdf`}>
-          Download PDF
-        </Link>
-        <PrintButton />
+        <PdfActions href={`/sales/${id}/pdf`} title={`Invoice ${invoice.invoiceNumber}`} />
         <Link className="btn-secondary" href={`/customers/${invoice.customerId}/account`}>
           Customer Account
         </Link>
@@ -71,10 +68,15 @@ export default async function Page({
       </div>
       <SummaryCards
         items={[
-          { label: "Grand Total", value: formatPkr(invoice.totalAmount) },
-          { label: "Paid", value: formatPkr(summary.paid) },
-          { label: "Return Credits", value: formatPkr(summary.returned) },
-          { label: "Balance Due", value: formatPkr(summary.balance) },
+          { label: "Grand Total", value: formatPkr(invoice.totalAmount), tone: "stock" },
+          { label: "Paid", value: formatPkr(summary.paid), tone: "income", direction: "up" },
+          {
+            label: "Return Credits",
+            value: formatPkr(summary.returned),
+            tone: "expense",
+            direction: "down",
+          },
+          { label: "Balance Due", value: formatPkr(summary.balance), tone: "warning" },
         ]}
       />
       <div className="card p-5">

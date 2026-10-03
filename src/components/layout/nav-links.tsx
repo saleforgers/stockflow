@@ -18,7 +18,13 @@ const links = [
   { label: "Units", href: "/units", icon: "↔" },
 ] as const;
 
-export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+export function NavLinks({
+  onNavigate,
+  admin = false,
+}: {
+  onNavigate?: () => void;
+  admin?: boolean;
+}) {
   const pathname = usePathname();
 
   return (
@@ -47,6 +53,15 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         );
       })}
+      {admin && (
+        <Link
+          href="/settings/data-cleanup"
+          onClick={onNavigate}
+          className={`mt-4 flex items-center gap-3 border-t border-slate-700 px-3 py-3 text-sm ${pathname.startsWith("/settings/data-cleanup") ? "text-indigo-300" : "text-slate-400 hover:text-white"}`}
+        >
+          <span aria-hidden="true">⚙</span>Demo Data Cleanup
+        </Link>
+      )}
     </nav>
   );
 }

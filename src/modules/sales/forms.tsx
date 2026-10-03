@@ -289,7 +289,7 @@ export function InvoiceForm({
             />
           )}
         </div>
-        <div className="rounded-xl bg-slate-50 p-5 space-y-3">
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-6 space-y-4 tabular-nums">
           <p>
             Subtotal <strong className="float-right">PKR {preview.subtotal}</strong>
           </p>
@@ -297,15 +297,15 @@ export function InvoiceForm({
             Invoice Discount{" "}
             <strong className="float-right">PKR {command.invoiceDiscountAmount || "0"}</strong>
           </p>
-          <p className="border-t pt-3 text-lg">
+          <p className="border-t border-indigo-200 pt-4 text-xl font-semibold text-indigo-900">
             Grand Total <strong className="float-right">PKR {preview.total}</strong>
           </p>
           {!estimate && (
             <>
-              <p>
+              <p className="text-emerald-700">
                 Paid Now <strong className="float-right">PKR {paid || "0"}</strong>
               </p>
-              <p>
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 font-semibold text-amber-900">
                 Balance Due <strong className="float-right">PKR {preview.balance}</strong>
               </p>
             </>

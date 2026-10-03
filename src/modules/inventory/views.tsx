@@ -2,6 +2,7 @@ import Link from "next/link";
 import { decimal } from "@/lib/decimal/decimal";
 import { formatDate, formatPkr, formatQuantity } from "@/lib/format";
 import { businessLabel } from "@/lib/labels";
+import { FlowValue } from "@/components/ui/flow-value";
 import { lotLabel, stockStatus, type StockRow, type listLots, type listMovements } from "./queries";
 export function InventoryLinks() {
   return (
@@ -61,7 +62,7 @@ export function StockTable({ items }: { items: StockRow[] }) {
               <td>{formatPkr(p.value)}</td>
               <td>
                 <span
-                  className={`status-badge ${stockStatus(p.onHand, p.threshold) === "In Stock" ? "status-active" : "status-inactive"}`}
+                  className={`status-badge ${stockStatus(p.onHand, p.threshold) === "In Stock" ? "status-active" : stockStatus(p.onHand, p.threshold) === "Low Stock" ? "border border-amber-200 bg-amber-50 text-amber-800" : "border border-rose-200 bg-rose-50 text-rose-700"}`}
                 >
                   {stockStatus(p.onHand, p.threshold)}
                 </span>
@@ -170,8 +171,20 @@ export function MovementsTable({
               <td>{m.href ? <Link href={m.href}>{m.reference}</Link> : m.reference}</td>
               <td>{m.party}</td>
               <td>{m.inventoryLot ? lotLabel(m.inventoryLot) : "—"}</td>
-              <td>{m.direction === "IN" ? formatQuantity(m.quantity) : "—"}</td>
-              <td>{m.direction === "OUT" ? formatQuantity(m.quantity) : "—"}</td>
+              <td>
+                {m.direction === "IN" ? (
+                  <FlowValue direction="in">{formatQuantity(m.quantity)}</FlowValue>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td>
+                {m.direction === "OUT" ? (
+                  <FlowValue direction="out">{formatQuantity(m.quantity)}</FlowValue>
+                ) : (
+                  "—"
+                )}
+              </td>
               <td>{formatQuantity(m.balance)}</td>
             </tr>
           ))}

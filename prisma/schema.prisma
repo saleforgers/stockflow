@@ -125,6 +125,16 @@ model User {
   expensesCreated         Expense[]             @relation("ExpenseCreatedBy")
   expensesVoided          Expense[]             @relation("ExpenseVoidedBy")
   estimatesCreated        Estimate[]
+  demoCleanupArchives     DemoCleanupArchive[]
+}
+
+model DemoCleanupArchive {
+  id          String   @id @db.Uuid
+  createdById String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  recordCount Int
+  backup      Json
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Restrict, onUpdate: NoAction)
 }
 
 model Session {

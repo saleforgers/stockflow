@@ -7,6 +7,8 @@ import { normalizePage } from "@/lib/pagination";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { SummaryCards } from "@/components/ui/summary-cards";
+import { PdfActions } from "@/components/ui/pdf-actions";
+import { FlowValue } from "@/components/ui/flow-value";
 import { getStatement } from "./queries";
 export async function AccountPage({
   id,
@@ -33,9 +35,10 @@ export async function AccountPage({
         description={[account.party.phone, account.party.address].filter(Boolean).join(" · ")}
       />
       <div className="flex flex-wrap gap-3">
-        <Link className="btn-secondary" href={`/${base}/${id}/account/pdf?${filters}`}>
-          Download Statement PDF
-        </Link>
+        <PdfActions
+          href={`/${base}/${id}/account/pdf?${filters}`}
+          title={`${account.party.name} Statement`}
+        />
         {user.role !== "STAFF" && account.party.isActive && (
           <Link
             className="btn-primary"
@@ -55,13 +58,20 @@ export async function AccountPage({
           {
             label: customer ? "Total Sales" : "Total Purchases",
             value: formatPkr(account.transactions),
+            tone: customer ? "income" : "stock",
           },
-          { label: customer ? "Total Received" : "Total Paid", value: formatPkr(account.payments) },
+          {
+            label: customer ? "Total Received" : "Total Paid",
+            value: formatPkr(account.payments),
+            tone: customer ? "income" : "expense",
+            direction: customer ? "up" : "down",
+          },
           {
             label: customer ? "Outstanding" : "Payable Balance",
             value: formatPkr(account.outstanding),
+            tone: "warning",
           },
-          { label: "Credit Balance", value: formatPkr(account.credit) },
+          { label: "Credit Balance", value: formatPkr(account.credit), tone: "stock" },
         ]}
       />
       <form className="card flex flex-wrap items-end gap-3 p-4">
@@ -108,8 +118,20 @@ export async function AccountPage({
                   {businessLabel(e.entryType)}
                   {e.reason && <p className="text-xs text-slate-500">{e.reason}</p>}
                 </td>
-                <td>{e.effect === "INCREASE" ? formatPkr(e.amount) : "—"}</td>
-                <td>{e.effect === "DECREASE" ? formatPkr(e.amount) : "—"}</td>
+                <td>
+                  {e.effect === "INCREASE" ? (
+                    <FlowValue direction="in">{formatPkr(e.amount)}</FlowValue>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td>
+                  {e.effect === "DECREASE" ? (
+                    <FlowValue direction="out">{formatPkr(e.amount)}</FlowValue>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td>{formatPkr(e.balance)}</td>
               </tr>
             ))}

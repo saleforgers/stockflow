@@ -5,6 +5,7 @@ import { formatDate, formatPkr } from "@/lib/format";
 import { businessLabel } from "@/lib/labels";
 import { PageHeader } from "@/components/ui/page-header";
 import { CommandForm } from "@/components/ui/command-form";
+import { PdfActions } from "@/components/ui/pdf-actions";
 import { getEstimate } from "@/modules/estimates/queries";
 import { estimateItems } from "@/modules/estimates/services";
 import { convertEstimateAction, estimateStatusAction } from "@/modules/estimates/actions";
@@ -22,9 +23,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         description={`${estimate.customerNameSnapshot} · ${formatDate(estimate.estimateDate)} · ${businessLabel(estimate.status)}`}
       />
       <div className="flex flex-wrap gap-3">
-        <Link className="btn-secondary" href={`/estimates/${id}/pdf`}>
-          Download Estimate PDF
-        </Link>
+        <PdfActions href={`/estimates/${id}/pdf`} title={`Estimate ${estimate.estimateNumber}`} />
         {editable && (
           <Link className="btn-secondary" href={`/estimates/${id}/edit`}>
             Edit Estimate

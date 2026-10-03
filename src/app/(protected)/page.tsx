@@ -7,6 +7,7 @@ import { listStock } from "@/modules/inventory/queries";
 import { StockTable } from "@/modules/inventory/views";
 import { PageHeader } from "@/components/ui/page-header";
 import { SummaryCards } from "@/components/ui/summary-cards";
+import { decimal } from "@/lib/decimal/decimal";
 export const metadata = { title: "Dashboard" };
 export default async function Page() {
   await requireUser();
@@ -62,18 +63,75 @@ export default async function Page() {
         </Link>
       </div>
       <SummaryCards
+        columns={3}
         items={[
-          { label: "Today's Net Sales", value: formatPkr(daily.netSales) },
-          { label: "This Month Net Sales", value: formatPkr(monthly.netSales) },
-          { label: "Gross Profit", value: formatPkr(monthly.grossProfit) },
-          { label: "Expenses", value: formatPkr(monthly.expenses) },
-          { label: "Net Profit", value: formatPkr(monthly.netProfit) },
-          { label: "Inventory Value", value: formatPkr(stock.totalValue) },
-          { label: "Customer Receivables", value: formatPkr(receivables.outstanding) },
-          { label: "Supplier Payables", value: formatPkr(payables.outstanding) },
-          { label: "Low / Out of Stock", value: String(low.total) },
+          {
+            label: "Today's Net Sales",
+            value: formatPkr(daily.netSales),
+            tone: "income",
+            direction: "up",
+            hint: "Finalized sales less returns today",
+          },
+          {
+            label: "This Month Net Sales",
+            value: formatPkr(monthly.netSales),
+            tone: "income",
+            direction: "up",
+            hint: "Month to date, after returns",
+          },
+          {
+            label: "Gross Profit",
+            value: formatPkr(monthly.grossProfit),
+            tone: decimal(monthly.grossProfit).isNegative() ? "expense" : "income",
+            hint: "Sales less original stock cost · This month",
+          },
+          {
+            label: "Expenses",
+            value: formatPkr(monthly.expenses),
+            tone: "expense",
+            direction: "down",
+            hint: "Operating costs · This month",
+          },
+          {
+            label: "Net Profit",
+            value: formatPkr(monthly.netProfit),
+            tone: decimal(monthly.netProfit).isNegative() ? "expense" : "income",
+            hint: "Gross profit less expenses · This month",
+          },
+          {
+            label: "Inventory Value",
+            value: formatPkr(stock.totalValue),
+            tone: "stock",
+            hint: "Value of remaining stock at its original cost",
+          },
         ]}
       />
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Accounts &amp; Stock Alerts</h2>
+        <SummaryCards
+          columns={3}
+          items={[
+            {
+              label: "Customers Owe You",
+              value: formatPkr(receivables.outstanding),
+              tone: "warning",
+              hint: "Outstanding customer invoices",
+            },
+            {
+              label: "You Owe Suppliers",
+              value: formatPkr(payables.outstanding),
+              tone: "expense",
+              hint: "Outstanding supplier purchases",
+            },
+            {
+              label: "Low / Out of Stock",
+              value: String(low.total),
+              tone: "warning",
+              hint: "Products at or below their reorder threshold",
+            },
+          ]}
+        />
+      </section>
       <section className="space-y-3">
         <div className="flex justify-between">
           <h2 className="text-lg font-semibold">Low Stock Items</h2>

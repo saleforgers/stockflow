@@ -5,7 +5,7 @@ import { createBusinessPdf, pdfResponse } from "@/modules/documents/pdf";
 import { formatDate, formatPkr, formatQuantity } from "@/lib/format";
 import { businessLabel } from "@/lib/labels";
 export const runtime = "nodejs";
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!(await getCurrentUser())) return new Response("Authentication required", { status: 401 });
   const estimate = await getEstimate((await params).id);
   if (!estimate) return new Response("Estimate not found", { status: 404 });
@@ -49,5 +49,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .filter(Boolean)
       .join("\n"),
   });
-  return pdfResponse(bytes, `${estimate.estimateNumber}.pdf`);
+  return pdfResponse(
+    bytes,
+    `${estimate.estimateNumber}.pdf`,
+    new URL(request.url).searchParams.get("inline") === "1",
+  );
 }

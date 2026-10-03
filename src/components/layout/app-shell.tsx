@@ -57,7 +57,7 @@ export function AppShell({ user, children }: { user: AuthorizedUser; children: R
           >
             StockFlow
           </p>
-          <NavLinks />
+          <NavLinks admin={user.role === "ADMIN"} />
         </div>
 
         {/* User footer */}
@@ -127,7 +127,7 @@ export function AppShell({ user, children }: { user: AuthorizedUser; children: R
                   </div>
                   <span className="text-sm font-semibold text-white">StockFlow</span>
                 </div>
-                <NavLinks />
+                <NavLinks admin={user.role === "ADMIN"} />
               </div>
             </details>
             <span className="text-sm font-semibold text-slate-900">StockFlow</span>
