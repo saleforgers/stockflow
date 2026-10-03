@@ -117,7 +117,7 @@ export default async function PurchasesPage({
                   <td>
                     <StatusBadge
                       active={item.paymentStatus === "PAID"}
-                      label={item.paymentStatus.replaceAll("_", " ")}
+                      label={businessLabel(item.paymentStatus)}
                     />
                   </td>
                   <td>{formatPkr(item.outstanding)}</td>

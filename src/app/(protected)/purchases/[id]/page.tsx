@@ -93,7 +93,7 @@ export default async function PurchaseDetailPage({
           <div className="mt-2">
             <StatusBadge
               active={purchase.paymentStatus === "PAID"}
-              label={purchase.paymentStatus.replaceAll("_", " ")}
+              label={businessLabel(purchase.paymentStatus)}
             />
           </div>
         </div>

@@ -140,6 +140,11 @@ export function lotLabel(lot: {
   );
 }
 
+// Receipt dates can be future-dated and documents can be backdated. Stock actually
+// changes when its audit entry is recorded, so balances use that same order.
+export const movementBalanceSql = Prisma.sql`SUM(CASE WHEN direction='IN' THEN quantity ELSE -quantity END)
+ OVER (PARTITION BY "productId", "locationId" ORDER BY "createdAt", id ROWS UNBOUNDED PRECEDING)`;
+
 export async function listMovements(input: {
   page: number;
   productId?: string;
@@ -196,7 +201,7 @@ export async function listMovements(input: {
         },
         adjustmentLine: { include: { stockAdjustment: true } },
       },
-      orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       ...paginationFor(input.page),
     }),
     prisma.stockMovement.count({ where }),
@@ -205,8 +210,7 @@ export async function listMovements(input: {
   const ids = items.map((m) => m.id);
   const balances = ids.length
     ? await prisma.$queryRaw<{ id: string; balance: Prisma.Decimal }[]>(Prisma.sql`
-    SELECT id, balance FROM (SELECT m.id, SUM(CASE WHEN direction='IN' THEN quantity ELSE -quantity END)
-    OVER (PARTITION BY "productId", "locationId" ORDER BY "occurredAt", "createdAt", id ROWS UNBOUNDED PRECEDING) AS balance
+    SELECT id, balance FROM (SELECT m.id, ${movementBalanceSql} AS balance
     FROM "StockMovement" m WHERE ${input.productId ? Prisma.sql`"productId"=${input.productId}::uuid` : Prisma.sql`true`}) history
     WHERE id IN (${Prisma.join(ids.map((id) => Prisma.sql`${id}::uuid`))})`)
     : [];
