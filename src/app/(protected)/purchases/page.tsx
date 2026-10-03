@@ -45,7 +45,7 @@ export default async function PurchasesPage({
           Record supplier payment
         </Link>
       </div>
-      <SearchFilters search={params.search}>
+      <SearchFilters search={params.search} showActiveFilter={false}>
         <label className="text-sm font-medium text-slate-700">
           Status
           <select className="input mt-1 min-w-36" defaultValue={params.status ?? ""} name="status">
