@@ -1,3 +1,4 @@
+import { businessLabel } from "@/lib/labels";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -50,8 +51,8 @@ export default async function PurchasesPage({
           <select className="input mt-1 min-w-36" defaultValue={params.status ?? ""} name="status">
             <option value="">All statuses</option>
             <option value="DRAFT">Draft</option>
-            <option value="POSTED">Posted</option>
-            <option value="VOID">Void</option>
+            <option value="POSTED">Finalized</option>
+            <option value="VOID">Cancelled</option>
           </select>
         </label>
         <label className="text-sm font-medium text-slate-700">
@@ -108,7 +109,10 @@ export default async function PurchasesPage({
                   <td>{formatDate(item.purchaseDate)}</td>
                   <td>{formatPkr(item.totalAmount)}</td>
                   <td>
-                    <StatusBadge active={item.status === "POSTED"} label={item.status} />
+                    <StatusBadge
+                      active={item.status === "POSTED"}
+                      label={businessLabel(item.status)}
+                    />
                   </td>
                   <td>
                     <StatusBadge

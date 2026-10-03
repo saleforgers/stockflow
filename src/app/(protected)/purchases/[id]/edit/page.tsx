@@ -16,7 +16,7 @@ export default async function EditPurchasePage({ params }: { params: Promise<{ i
       <>
         <PageHeader
           title="Purchase cannot be edited"
-          description="Posted purchases are immutable."
+          description="Finalized purchases cannot be edited. Use a return or correction."
         />
       </>
     );
@@ -45,7 +45,7 @@ export default async function EditPurchasePage({ params }: { params: Promise<{ i
     <>
       <PageHeader
         title={`Edit ${purchase.purchaseNumber}`}
-        description="Changes remain non-posting until you review and post the draft."
+        description="Draft changes update stock and the supplier account only when you finalize."
       />
       <PurchaseForm
         action={updatePurchaseDraftAction.bind(null, id)}

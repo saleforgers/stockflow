@@ -314,3 +314,13 @@ Purchase returns lock their original cost-layer rows, reject quantities above cu
 Migration `20260930030000_phase_2_transaction_guardrails` adds database checks for Phase 2 typed source semantics and deferred cross-row triggers for supplier allocation limits/party ownership, posted purchase total reconciliation, and purchase-return source matching. Application services remain responsible for authorization, active-reference validation, deterministic locking, and aggregate return eligibility.
 
 Phase 2 integration coverage is in `tests/integration/purchasing.integration.test.ts`, including drafts, fractional UOM rules, atomic/idempotent posting, reconciliation, full/partial/repeated/multi-document/unallocated payments, returns, authorization, rollback behavior, and concurrent return attempts. The migration and suite must pass on the disposable development database before Phase 2 is marked release-complete.
+
+## 19. Client demo upgrade (2026-10-03)
+
+Inventory views derive quantities from signed `StockMovement` rows and values from remaining `InventoryLot` quantities at their recorded costs. Stock adjustments reuse the existing adjustment models, add a nullable unique request key, and consume/create original cost layers inside a serializable transaction. SQL triggers protect finalized adjustment headers, items and movements; a deferred item trigger requires matching product/location/lot, direction, quantity and unit cost on the recorded movement. An optimistic physical-count check prevents applying an outdated count.
+
+Sales draft creation adds a nullable unique request key without changing finalized invoices or FIFO allocations. PostgreSQL serialization/deadlock retry detection accepts the nested error shape emitted by the Prisma PostgreSQL adapter.
+
+Estimates are non-inventory documents with validated JSON item snapshots, customer snapshots, numeric header amounts, optional validity date and an independent `EST` sequence. Foreign keys protect customer, creator and converted invoice references. SQL checks enforce dates, monetary reconciliation, item-array size and converted status/reference agreement. Converted/cancelled estimates are immutable; deletion is forbidden. The new table has RLS enabled and Data API access revoked; server-side services enforce active Admin/Manager roles. Conversion locks the estimate and creates a draft invoice in the same transaction, without stock, payment or ledger effects.
+
+The three new migration directories and release verification are documented in [client-demo-upgrade.md](client-demo-upgrade.md). No applied migration was modified.

@@ -131,7 +131,7 @@ export function PurchaseReturnForm({
         <strong>PKR {total.toFixed(2)}</strong>
       </div>
       <div className="flex gap-3">
-        <SubmitButton>Post return</SubmitButton>
+        <SubmitButton>Confirm Return</SubmitButton>
         <Link className="btn-secondary" href={`/purchases/${purchaseId}`}>
           Cancel
         </Link>

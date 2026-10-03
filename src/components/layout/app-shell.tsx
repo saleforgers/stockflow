@@ -29,7 +29,10 @@ export function AppShell({ user, children }: { user: AuthorizedUser; children: R
         style={{ background: "var(--sidebar-bg)", borderRight: "1px solid var(--sidebar-border)" }}
       >
         {/* Logo */}
-        <div className="flex h-16 shrink-0 items-center gap-2.5 px-5" style={{ borderBottom: "1px solid var(--sidebar-border)" }}>
+        <div
+          className="flex h-16 shrink-0 items-center gap-2.5 px-5"
+          style={{ borderBottom: "1px solid var(--sidebar-border)" }}
+        >
           <div
             className="flex size-8 items-center justify-center rounded-lg text-white"
             style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
@@ -40,14 +43,19 @@ export function AppShell({ user, children }: { user: AuthorizedUser; children: R
           </div>
           <div>
             <p className="text-sm font-semibold text-white">StockFlow</p>
-            <p className="text-[10px] font-medium" style={{ color: "var(--sidebar-text)" }}>Inventory Management</p>
+            <p className="text-[10px] font-medium" style={{ color: "var(--sidebar-text)" }}>
+              Inventory Management
+            </p>
           </div>
         </div>
 
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto px-3 py-4">
-          <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#475569" }}>
-            Master Data
+          <p
+            className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest"
+            style={{ color: "#475569" }}
+          >
+            StockFlow
           </p>
           <NavLinks />
         </div>
@@ -58,7 +66,9 @@ export function AppShell({ user, children }: { user: AuthorizedUser; children: R
             <UserInitials name={user.name} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-slate-200">{user.name}</p>
-              <p className="text-xs" style={{ color: "var(--sidebar-text)" }}>{user.role}</p>
+              <p className="text-xs" style={{ color: "var(--sidebar-text)" }}>
+                {user.role}
+              </p>
             </div>
             <LogoutButton />
           </div>
@@ -70,7 +80,11 @@ export function AppShell({ user, children }: { user: AuthorizedUser; children: R
         {/* Top header */}
         <header
           className="sticky top-0 z-20 flex h-16 items-center justify-between border-b px-4 sm:px-6"
-          style={{ background: "var(--header-bg)", borderColor: "var(--header-border)", backdropFilter: "blur(12px)" }}
+          style={{
+            background: "var(--header-bg)",
+            borderColor: "var(--header-border)",
+            backdropFilter: "blur(12px)",
+          }}
         >
           {/* Mobile: menu + logo */}
           <div className="flex items-center gap-3 lg:hidden">
@@ -79,20 +93,35 @@ export function AppShell({ user, children }: { user: AuthorizedUser; children: R
                 className="btn-secondary flex size-9 cursor-pointer list-none items-center justify-center rounded-lg p-0"
                 aria-label="Open menu"
               >
-                <svg className="size-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+                <svg
+                  className="size-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </summary>
               <div
                 className="absolute top-11 left-0 w-64 rounded-xl p-3 shadow-2xl"
-                style={{ background: "var(--sidebar-bg)", border: "1px solid var(--sidebar-border)" }}
+                style={{
+                  background: "var(--sidebar-bg)",
+                  border: "1px solid var(--sidebar-border)",
+                }}
               >
                 <div className="mb-3 flex items-center gap-2.5 px-2">
                   <div
                     className="flex size-7 items-center justify-center rounded-lg text-white"
                     style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
                   >
-                    <svg className="size-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <svg
+                      className="size-3.5"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                      aria-hidden="true"
+                    >
                       <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
                     </svg>
                   </div>
@@ -110,7 +139,13 @@ export function AppShell({ user, children }: { user: AuthorizedUser; children: R
               className="flex size-7 items-center justify-center rounded-md"
               style={{ background: "var(--primary-light)" }}
             >
-              <svg className="size-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true" style={{ color: "var(--primary)" }}>
+              <svg
+                className="size-3.5"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+                style={{ color: "var(--primary)" }}
+              >
                 <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
               </svg>
             </div>

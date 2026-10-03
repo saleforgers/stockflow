@@ -13,6 +13,13 @@ import {
   allocateCustomerAdvance,
 } from "./services";
 import type { InvoiceDraftCommand, ReceiptCommand, SaleReturnCommand } from "./validation";
+import { nonnegativeMoney } from "@/modules/purchases/calculations";
+function paymentInput(data: FormData) {
+  const amount = nonnegativeMoney(String(data.get("amount") ?? "").trim() || "0", "Paid Now");
+  return amount.gt(0)
+    ? { amount: amount.toFixed(2), paymentMethodId: String(data.get("paymentMethodId")) }
+    : undefined;
+}
 function payload<T>(data: FormData): T {
   try {
     return JSON.parse(String(data.get("payload"))) as T;
@@ -21,6 +28,9 @@ function payload<T>(data: FormData): T {
   }
 }
 async function invalidate() {
+  revalidatePath("/inventory", "layout");
+  revalidatePath("/reports", "layout");
+  revalidatePath("/");
   revalidatePath("/sales");
   revalidatePath("/customers", "layout");
   revalidatePath("/products");
@@ -31,16 +41,27 @@ export async function saveInvoiceAction(
   data: FormData,
 ): Promise<ActionResult> {
   let result;
+  let finalizeError = "";
   try {
     const user = await requireRole(["ADMIN", "MANAGER"]);
     const input = payload<InvoiceDraftCommand>(data);
     result = id ? await updateInvoiceDraft(id, input, user) : await createInvoiceDraft(input, user);
+    if (data.get("intent") === "finalize") {
+      try {
+        await postInvoice(result.id, user, paymentInput(data));
+      } catch (error) {
+        const failure = toActionFailure(error);
+        finalizeError = failure.message;
+      }
+    }
   } catch (error) {
     return toActionFailure(error);
   }
   await invalidate();
   revalidatePath(`/sales/${result.id}`);
-  redirect(`/sales/${result.id}`);
+  redirect(
+    `/sales/${result.id}${finalizeError ? `?error=${encodeURIComponent(finalizeError)}` : data.get("intent") === "finalize" ? "?success=1" : ""}`,
+  );
 }
 export async function postInvoiceAction(
   id: string,
@@ -48,18 +69,13 @@ export async function postInvoiceAction(
   data: FormData,
 ): Promise<ActionResult> {
   try {
-    const amount = String(data.get("amount") ?? "").trim();
-    await postInvoice(
-      id,
-      await requireRole(["ADMIN", "MANAGER"]),
-      amount ? { amount, paymentMethodId: String(data.get("paymentMethodId")) } : undefined,
-    );
+    await postInvoice(id, await requireRole(["ADMIN", "MANAGER"]), paymentInput(data));
   } catch (error) {
     return toActionFailure(error);
   }
   await invalidate();
   revalidatePath(`/sales/${id}`);
-  redirect(`/sales/${id}`);
+  redirect(`/sales/${id}?success=1`);
 }
 export async function receiptAction(_state: ActionResult, data: FormData): Promise<ActionResult> {
   let customerId;

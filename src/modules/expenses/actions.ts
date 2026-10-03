@@ -44,6 +44,8 @@ export async function createExpenseAction(
     return toActionFailure(error);
   }
   revalidatePath("/expenses");
+  revalidatePath("/");
+  revalidatePath("/reports", "layout");
   redirect(`/expenses/${expenseId}?success=created`);
 }
 
@@ -62,6 +64,8 @@ export async function voidExpenseAction(
     return toActionFailure(error);
   }
   revalidatePath("/expenses");
+  revalidatePath("/");
+  revalidatePath("/reports", "layout");
   revalidatePath(`/expenses/${id}`);
   redirect(`/expenses/${id}?success=voided`);
 }

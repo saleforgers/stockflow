@@ -32,14 +32,30 @@ export function getInvoice(id: string) {
       lines: {
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         include: {
-          lotAllocations: { include: { inventoryLot: { include: { purchaseLot: true } } } },
+          lotAllocations: {
+            include: {
+              inventoryLot: {
+                include: {
+                  purchaseLot: true,
+                  adjustmentLines: {
+                    where: { direction: "IN" },
+                    include: { stockAdjustment: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
           returnLines: {
             where: { saleReturn: { status: "POSTED" } },
             include: { allocations: true },
           },
         },
       },
-      paymentAllocations: { where: { payment: { status: "POSTED" } }, include: { payment: true } },
+      paymentAllocations: {
+        where: { payment: { status: "POSTED" } },
+        include: { payment: { include: { paymentMethod: true } } },
+      },
       returns: {
         where: { status: "POSTED" },
         include: { lines: { include: { allocations: true } } },
@@ -47,8 +63,8 @@ export function getInvoice(id: string) {
     },
   });
 }
-export async function getSalesOptions() {
-  const [customers, products, paymentMethods, invoices] = await Promise.all([
+export async function getSalesOptions(withInvoices = true) {
+  const [customers, products, paymentMethods, invoices, stock] = await Promise.all([
     prisma.customer.findMany({
       where: { isActive: true },
       select: { id: true, name: true, isWalkIn: true },
@@ -70,17 +86,28 @@ export async function getSalesOptions() {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
-    prisma.salesInvoice.findMany({
-      where: { status: "POSTED" },
-      select: {
-        id: true,
-        customerId: true,
-        invoiceNumber: true,
-        totalAmount: true,
-        paymentAllocations: { where: { payment: { status: "POSTED" } }, select: { amount: true } },
-        returns: { where: { status: "POSTED" }, select: { totalAmount: true } },
-      },
-      orderBy: [{ invoiceDate: "asc" }, { id: "asc" }],
+    withInvoices
+      ? prisma.salesInvoice.findMany({
+          where: { status: "POSTED" },
+          select: {
+            id: true,
+            customerId: true,
+            invoiceNumber: true,
+            totalAmount: true,
+            paymentAllocations: {
+              where: { payment: { status: "POSTED" } },
+              select: { amount: true },
+            },
+            returns: { where: { status: "POSTED" }, select: { totalAmount: true } },
+          },
+          orderBy: [{ invoiceDate: "asc" }, { id: "asc" }],
+        })
+      : Promise.resolve([]),
+    // Form catalogue is already fetched in one query. Stock lookup remains server-side.
+    prisma.stockMovement.groupBy({
+      by: ["productId", "direction"],
+      where: { location: { isDefault: true } },
+      _sum: { quantity: true },
     }),
   ]);
   return {
@@ -89,6 +116,16 @@ export async function getSalesOptions() {
     products: products.map((p) => ({
       ...p,
       defaultSellingPrice: p.defaultSellingPrice?.toFixed(4) ?? "",
+      available: stock
+        .filter((s) => s.productId === p.id)
+        .reduce(
+          (sum, s) =>
+            s.direction === "IN"
+              ? sum.plus(s._sum.quantity?.toString() ?? "0")
+              : sum.minus(s._sum.quantity?.toString() ?? "0"),
+          new Decimal(0),
+        )
+        .toFixed(),
     })),
     invoices: invoices
       .map((i) => ({

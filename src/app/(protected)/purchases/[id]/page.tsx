@@ -1,3 +1,4 @@
+import { businessLabel } from "@/lib/labels";
 import Decimal from "decimal.js";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -81,7 +82,10 @@ export default async function PurchaseDetailPage({
         <div className="card-stat">
           <div className="text-xs font-semibold uppercase text-slate-500">Status</div>
           <div className="mt-2">
-            <StatusBadge active={purchase.status === "POSTED"} label={purchase.status} />
+            <StatusBadge
+              active={purchase.status === "POSTED"}
+              label={businessLabel(purchase.status)}
+            />
           </div>
         </div>
         <div className="card-stat">
@@ -145,7 +149,7 @@ export default async function PurchaseDetailPage({
                   <th>Product</th>
                   <th>Quantity</th>
                   <th>Unit cost</th>
-                  <th>Line total</th>
+                  <th>Amount</th>
                   <th>Available</th>
                 </tr>
               </thead>
@@ -190,7 +194,7 @@ export default async function PurchaseDetailPage({
             <tbody>
               {purchase.paymentAllocations.map((allocation) => (
                 <tr key={allocation.id}>
-                  <td>Payment allocation</td>
+                  <td>Payment</td>
                   <td>
                     {allocation.payment.paymentNumber} • {allocation.payment.paymentMethod.name}
                   </td>
@@ -224,8 +228,8 @@ export default async function PurchaseDetailPage({
           </p>
           <CommandForm
             action={postPurchaseAction.bind(null, purchase.id)}
-            label="Post purchase"
-            confirm="Post this purchase? Posted commercial and inventory facts cannot be edited."
+            label="Finalize Purchase"
+            confirm="Finalize this purchase? Stock and supplier balance will be updated."
           />
         </section>
       ) : null}

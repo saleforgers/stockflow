@@ -16,7 +16,7 @@ export default async function NewSupplierPaymentPage({
     <>
       <PageHeader
         title="Record supplier payment"
-        description="Post a payment and optionally allocate it across outstanding purchases."
+        description="Record a payment against outstanding purchases or as an advance."
       />
       <SupplierPaymentForm
         action={recordSupplierPaymentAction}

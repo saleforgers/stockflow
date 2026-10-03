@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import { DEFAULT_PAGE_SIZE, paginationFor } from "@/lib/pagination";
+import Decimal from "decimal.js";
+import { stockStatus } from "@/modules/inventory/queries";
+import { isIdentifier } from "@/lib/validation/identifier";
 
 export async function listProducts(input: {
   search?: string;
@@ -32,10 +35,37 @@ export async function listProducts(input: {
     }),
     prisma.product.count({ where }),
   ]);
-  return { items, total, pageSize: DEFAULT_PAGE_SIZE };
+  const quantities = items.length
+    ? await prisma.stockMovement.groupBy({
+        by: ["productId", "direction"],
+        where: { productId: { in: items.map((p) => p.id) }, location: { isDefault: true } },
+        _sum: { quantity: true },
+      })
+    : [];
+  return {
+    items: items.map((p) => {
+      const onHand = quantities
+        .filter((q) => q.productId === p.id)
+        .reduce(
+          (s, q) =>
+            q.direction === "IN"
+              ? s.plus(q._sum.quantity?.toString() ?? "0")
+              : s.minus(q._sum.quantity?.toString() ?? "0"),
+          new Decimal(0),
+        );
+      return {
+        ...p,
+        onHand: onHand.toFixed(),
+        stockStatus: stockStatus(onHand, p.lowStockThreshold),
+      };
+    }),
+    total,
+    pageSize: DEFAULT_PAGE_SIZE,
+  };
 }
 
 export function getProduct(id: string) {
+  if (!isIdentifier(id)) return null;
   return prisma.product.findUnique({
     where: { id },
     include: { category: true, inventoryUnit: true, preferredSupplier: true },
@@ -58,4 +88,3 @@ export function getProductFilterCategories() {
     orderBy: { name: "asc" },
   });
 }
-

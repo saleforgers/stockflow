@@ -14,7 +14,7 @@ export default async function NewExpensePage() {
     <>
       <PageHeader
         title="Add Expense"
-        description="Record a paid operating expense. This does not affect stock or FIFO costs."
+        description="Record a paid operating expense. This does not affect inventory cost."
       />
       <ExpenseForm
         action={createExpenseAction}

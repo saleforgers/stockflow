@@ -1,0 +1,34 @@
+# Client demo upgrade — 2026-10-03
+
+The owner authorized inventory usability, adjustments, documents, management reporting, expenses, estimates, and controlled production deployment in this implementation request. This supersedes earlier phase restrictions for these modules only.
+
+## Implementation decisions
+
+- Reuse existing FIFO, payment, return, ledger and authorization services. No new inventory location or independent stock/ledger balance.
+- On hand comes from signed movements; valuation is the sum of remaining lot quantity multiplied by its recorded cost. The displayed average cost is valuation divided by remaining layer quantity.
+- Count adjustments compare the displayed quantity with the transaction's current quantity. Concurrent changes require a refreshed count. Reductions consume FIFO layers; additions require a positive business-approved unit cost. Damage/loss may only reduce stock. Returns continue to restock original lots; no unsupported no-restock/refund flow is introduced.
+- Invoices use existing payment methods. Credit means no payment now, rather than a new payment method record. Due dates are omitted because the existing invoice model does not support them.
+- Document company details use centralized server environment configuration. No invented phone, address, tax number or logo.
+- P&L uses finalized invoice totals less returns on their respective business dates, and original allocation costs less original-cost return allocations. Purchases are not expenses. Stock adjustment losses are disclosed separately from sales COGS and operating expenses.
+- Expenses remain paid, immutable records corrected by the existing cancellation/replacement workflow.
+
+## Delivery status
+
+Implemented P0, P1 and the core P2 estimate workflow:
+
+- Business-facing product rows, stock warnings, live decimal totals, draft/finalize actions, payment-aware invoice status, payment history and expandable stock-used detail.
+- Inventory overview, accurate remaining-layer valuation, low-stock filtering, product inventory cards, lots, linked stock movements with running balances and auditable stock counts.
+- Customer and supplier accounts with summary cards, date-filtered paginated statements, opening/closing balances and server-generated A4 PDFs. Existing customer advance application remains available separately.
+- Existing expense entry, cancellation/replacement and filtering retained. Utilities and Other defaults added without replacing existing categories.
+- Management P&L, sales/purchase reports, receivables/payables and report links to inventory/expense reports; useful dashboard totals, low-stock items and recent business documents.
+- Estimates with validated item snapshots, statuses, PDFs and atomic, retry-safe conversion into a draft invoice. Estimates never reserve stock or write account/COGS records. Numbers use a new independent `EST` sequence.
+
+New migrations: `20261003020000_stock_adjustment_guardrails`, `20261003030000_expense_category_defaults`, `20261003040000_estimates`. The earlier committed expense migration was also applied to development. All are additive; existing history is retained.
+
+Routes: `/inventory`, `/inventory/lots`, `/inventory/movements`, `/inventory/low-stock`, `/inventory/adjust`, `/inventory/adjustments/[id]`, `/reports`, `/reports/profit-loss`, `/reports/{sales,purchases,receivables,payables}`, `/estimates`, `/estimates/new`, `/estimates/[id]`, `/estimates/[id]/edit`, `/estimates/[id]/pdf`, `/sales/[id]/pdf`, `/customers/[id]/account/pdf`, `/suppliers/[id]/account/pdf`, `/customers/[id]/advances`.
+
+Validation: all 31 unit tests and 15 focused database acceptance tests passed. Typecheck and production build passed. Development schema comparison reports no difference. Authenticated development smoke checks passed for 25 routes including every PDF type; unauthenticated inventory redirects to login. A multi-page invoice PDF was rendered and visually inspected.
+
+Intentionally deferred: invoice due dates (not in the existing model), damaged returns without restocking, cash-refund UI, percentage discount entry, arbitrary non-Western PDF fonts, and a business-settings editor. Branding is available through documented `BUSINESS_*` environment values; default branding remains StockFlow until owner details are supplied. The PDF export limit is 10,000 statement entries per date range. No statutory accounting, tax, multi-location or landed-cost workflows were added.
+
+Production migration and deployment: pending final release checks. The existing protected GitHub migration workflow and existing Vercel production project will be used.

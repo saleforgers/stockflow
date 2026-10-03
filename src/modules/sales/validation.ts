@@ -7,6 +7,7 @@ const value = z
   .max(22);
 const text = z.string().trim().max(2000).optional().nullable();
 export const invoiceDraftSchema = z.object({
+  requestKey: z.string().uuid().optional(),
   customerId: z.string().uuid(),
   invoiceDate: z.string().min(1),
   invoiceDiscountAmount: value.default("0"),

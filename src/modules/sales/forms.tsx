@@ -4,6 +4,7 @@ import type { ActionResult } from "@/lib/actions/action-result";
 import { INITIAL_ACTION_RESULT } from "@/lib/actions/action-result";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { invoicePreview } from "./preview";
 import type { InvoiceDraftCommand } from "./validation";
 
 type Action = (state: ActionResult, data: FormData) => Promise<ActionResult>;
@@ -86,20 +87,31 @@ export function InvoiceForm({
   products,
   date,
   initial,
+  methods = [],
+  requestKey,
+  estimate = false,
+  validUntil = "",
 }: {
   action: Action;
   customers: Option[];
   products: (Option & {
     sku: string;
     defaultSellingPrice: string;
+    available: string;
     inventoryUnit: { code: string; decimalScale: number };
   })[];
   date: string;
   initial?: InvoiceDraftCommand;
+  methods?: Option[];
+  requestKey?: string;
+  estimate?: boolean;
+  validUntil?: string;
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const [paid, setPaid] = useState("0");
   const [command, setCommand] = useState<InvoiceDraftCommand>(
     initial ?? {
+      requestKey,
       customerId: "",
       invoiceDate: date,
       invoiceDiscountAmount: "0",
@@ -107,6 +119,7 @@ export function InvoiceForm({
       lines: [{ productId: "", quantity: "1", unitPrice: "", lineDiscountAmount: "0" }],
     },
   );
+  const preview = invoicePreview(command, products, paid);
   const changeLine = (index: number, key: string, value: string) =>
     setCommand((c) => ({
       ...c,
@@ -125,75 +138,106 @@ export function InvoiceForm({
           onChange={(v) => setCommand((c) => ({ ...c, customerId: v }))}
         />
         <Field
-          label="Invoice date"
+          label={estimate ? "Estimate Date" : "Invoice Date"}
           name="date"
           type="date"
           value={command.invoiceDate}
           onChange={(v) => setCommand((c) => ({ ...c, invoiceDate: v }))}
         />
       </div>
-      {command.lines.map((line, i) => (
-        <fieldset key={i} className="space-y-3 rounded-lg border p-4">
-          <legend>Line {i + 1}</legend>
-          <Select
-            label="Product / SKU / unit"
-            name={`product-${i}`}
-            options={products.map((p) => ({
-              id: p.id,
-              name: `${p.sku} — ${p.name} (${p.inventoryUnit.code})`,
-            }))}
-            value={line.productId}
-            onChange={(v) => {
-              const product = products.find((p) => p.id === v);
-              setCommand((c) => ({
-                ...c,
-                lines: c.lines.map((l, index) =>
-                  index === i
-                    ? { ...l, productId: v, unitPrice: product?.defaultSellingPrice ?? "" }
-                    : l,
-                ),
-              }));
-            }}
-          />
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Field
-              label="Quantity"
-              name={`qty-${i}`}
-              value={line.quantity}
-              onChange={(v) => changeLine(i, "quantity", v)}
-            />
-            <Field
-              label="Unit selling price (PKR)"
-              name={`price-${i}`}
-              value={line.unitPrice}
-              onChange={(v) => changeLine(i, "unitPrice", v)}
-            />
-            <Field
-              label="Line discount (PKR)"
-              name={`discount-${i}`}
-              value={line.lineDiscountAmount}
-              onChange={(v) => changeLine(i, "lineDiscountAmount", v)}
-            />
-          </div>
-          <Field
-            label="Line notes"
-            name={`notes-${i}`}
-            value={line.notes ?? ""}
-            onChange={(v) => changeLine(i, "notes", v)}
-            required={false}
-          />
-          <button
-            type="button"
-            className="btn-secondary"
-            disabled={command.lines.length === 1}
-            onClick={() =>
-              setCommand((c) => ({ ...c, lines: c.lines.filter((_, index) => index !== i) }))
-            }
-          >
-            Remove line
-          </button>
-        </fieldset>
-      ))}
+      <div className="overflow-x-auto">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Available Stock</th>
+              <th>Qty</th>
+              <th>Rate (PKR)</th>
+              <th>Discount (PKR)</th>
+              <th>Amount (PKR)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {command.lines.map((line, i) => {
+              const p = products.find((p) => p.id === line.productId);
+              return (
+                <tr key={i}>
+                  <td className="min-w-64">
+                    <Select
+                      label="Product"
+                      name={"product-" + i}
+                      options={products.map((p) => ({ id: p.id, name: p.name + " · " + p.sku }))}
+                      value={line.productId}
+                      onChange={(v) => {
+                        const product = products.find((p) => p.id === v);
+                        setCommand((c) => ({
+                          ...c,
+                          lines: c.lines.map((l, index) =>
+                            index === i
+                              ? {
+                                  ...l,
+                                  productId: v,
+                                  unitPrice: product?.defaultSellingPrice ?? "",
+                                }
+                              : l,
+                          ),
+                        }));
+                      }}
+                    />
+                  </td>
+                  <td>
+                    {p ? p.available + " " + p.inventoryUnit.code : "—"}
+                    {!estimate && preview.shortages[i] && (
+                      <p className="mt-1 text-sm text-red-700">{preview.shortages[i]}</p>
+                    )}
+                  </td>
+                  <td className="min-w-24">
+                    <Field
+                      label="Qty"
+                      name={"qty-" + i}
+                      value={line.quantity}
+                      onChange={(v) => changeLine(i, "quantity", v)}
+                    />
+                  </td>
+                  <td className="min-w-32">
+                    <Field
+                      label="Rate"
+                      name={"rate-" + i}
+                      value={line.unitPrice}
+                      onChange={(v) => changeLine(i, "unitPrice", v)}
+                    />
+                  </td>
+                  <td className="min-w-32">
+                    <Field
+                      label="Discount"
+                      name={"discount-" + i}
+                      value={line.lineDiscountAmount}
+                      onChange={(v) => changeLine(i, "lineDiscountAmount", v)}
+                    />
+                  </td>
+                  <td className="tabular-nums">{preview.amounts[i]}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={command.lines.length === 1}
+                      onClick={() =>
+                        setCommand((c) => ({
+                          ...c,
+                          lines: c.lines.filter((_, index) => index !== i),
+                        }))
+                      }
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       <button
         type="button"
         className="btn-secondary"
@@ -207,25 +251,87 @@ export function InvoiceForm({
           }))
         }
       >
-        Add product line
+        + Add Product
       </button>
-      <Field
-        label="Invoice discount (PKR)"
-        name="invoiceDiscount"
-        value={command.invoiceDiscountAmount}
-        onChange={(v) => setCommand((c) => ({ ...c, invoiceDiscountAmount: v }))}
-      />
-      <Field
-        label="Notes"
-        name="notes"
-        value={command.notes ?? ""}
-        onChange={(v) => setCommand((c) => ({ ...c, notes: v }))}
-        required={false}
-      />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="space-y-4">
+          <Field
+            label="Invoice Discount (PKR)"
+            name="invoiceDiscount"
+            value={command.invoiceDiscountAmount}
+            onChange={(v) => setCommand((c) => ({ ...c, invoiceDiscountAmount: v }))}
+          />
+          <Field
+            label="Notes"
+            name="notes"
+            value={command.notes ?? ""}
+            onChange={(v) => setCommand((c) => ({ ...c, notes: v }))}
+            required={false}
+          />
+          {!estimate && (
+            <>
+              <Select
+                label="Payment Method (leave empty for Credit)"
+                name="paymentMethodId"
+                options={methods}
+                required={false}
+              />
+              <Field label="Paid Now (PKR)" name="amount" value={paid} onChange={setPaid} />
+            </>
+          )}
+          {estimate && (
+            <Field
+              label="Valid Until (optional)"
+              name="validUntil"
+              type="date"
+              value={validUntil}
+              required={false}
+            />
+          )}
+        </div>
+        <div className="rounded-xl bg-slate-50 p-5 space-y-3">
+          <p>
+            Subtotal <strong className="float-right">PKR {preview.subtotal}</strong>
+          </p>
+          <p>
+            Invoice Discount{" "}
+            <strong className="float-right">PKR {command.invoiceDiscountAmount || "0"}</strong>
+          </p>
+          <p className="border-t pt-3 text-lg">
+            Grand Total <strong className="float-right">PKR {preview.total}</strong>
+          </p>
+          {!estimate && (
+            <>
+              <p>
+                Paid Now <strong className="float-right">PKR {paid || "0"}</strong>
+              </p>
+              <p>
+                Balance Due <strong className="float-right">PKR {preview.balance}</strong>
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+      {preview.error && <p className="text-sm text-red-700">{preview.error}</p>}
+      <div className="flex gap-3">
+        <SubmitButton name="intent" value="draft">
+          Save Draft
+        </SubmitButton>
+        {!estimate && (
+          <SubmitButton
+            name="intent"
+            value="finalize"
+            disabled={!!preview.error || preview.shortages.some(Boolean)}
+          >
+            Finalize Invoice
+          </SubmitButton>
+        )}
+      </div>
       <p className="text-sm text-slate-500">
-        Save to review validated totals before posting. Discounts are fixed PKR amounts.
+        {estimate
+          ? "Estimates do not reserve or deduct stock."
+          : "Drafts do not deduct stock. Finalizing updates stock and the customer account. Availability is checked again when you finalize."}
       </p>
-      <SubmitButton>Save draft</SubmitButton>
     </form>
   );
 }
@@ -244,18 +350,19 @@ export function PostInvoiceForm({
       action={formAction}
       className="card space-y-4 p-6"
       onSubmit={(e) => {
-        if (!window.confirm("Post invoice and consume stock?")) e.preventDefault();
+        if (!window.confirm("Finalize this invoice and update stock and the customer balance?"))
+          e.preventDefault();
       }}
     >
       <FormMessage result={state} />
       <p>
         {walkIn
           ? "Full payment is required for this walk-in invoice."
-          : "Optional receipt at posting. Leave amount empty for a credit invoice."}
+          : "Enter Paid Now, or leave empty for a Credit invoice."}
       </p>
-      <Select label="Receipt method" name="paymentMethodId" options={methods} required={walkIn} />
-      <Field label="Receipt amount (PKR)" name="amount" required={walkIn} />
-      <SubmitButton>Post invoice</SubmitButton>
+      <Select label="Payment Method" name="paymentMethodId" options={methods} required={walkIn} />
+      <Field label="Paid Now (PKR)" name="amount" required={walkIn} />
+      <SubmitButton>Finalize Invoice</SubmitButton>
     </form>
   );
 }
@@ -343,7 +450,7 @@ export function ReturnForm({
 }: {
   action: Action;
   invoiceId: string;
-  lines: { id: string; name: string; remaining: string }[];
+  lines: { id: string; name: string; original: string; returned: string; remaining: string }[];
   date: string;
   requestKey: string;
 }) {
@@ -370,21 +477,54 @@ export function ReturnForm({
     >
       <FormMessage result={state} />
       <Field label="Return date" name="date" type="date" value={date} />
-      <Field label="Reason" name="reason" />
-      {lines.map((l) => (
-        <Field
-          key={l.id}
-          label={`${l.name} — returnable ${l.remaining}`}
-          name={l.id}
-          required={false}
-        />
-      ))}
+      <Select
+        label="Reason"
+        name="reason"
+        options={["Damaged", "Wrong Item", "Customer Return", "Other"].map((name) => ({
+          id: name,
+          name,
+        }))}
+      />
+      <div className="overflow-x-auto">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Original Qty</th>
+              <th>Already Returned</th>
+              <th>Returnable</th>
+              <th>Return Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((l) => (
+              <tr key={l.id}>
+                <td>{l.name}</td>
+                <td>{l.original}</td>
+                <td>{l.returned}</td>
+                <td>{l.remaining}</td>
+                <td>
+                  <input
+                    className="input"
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    max={l.remaining}
+                    name={l.id}
+                    aria-label={`Return quantity for ${l.name}`}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <Field label="Notes" name="notes" required={false} />
       <p className="text-sm text-slate-500">
-        Returns restore original cost layers and credit the customer. Cash refunds are separate
-        transactions.
+        Returned products go back into inventory and credit the customer account. Inspect damaged
+        goods before returning them to stock. Cash refunds are separate transactions.
       </p>
-      <SubmitButton>Post sale return</SubmitButton>
+      <SubmitButton>Confirm Return</SubmitButton>
     </form>
   );
 }
@@ -402,13 +542,13 @@ export function AdvanceForm({
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
   return (
     <form action={formAction} className="card space-y-4 p-6">
-      <h2 className="font-semibold">Allocate an existing advance</h2>
+      <h2 className="font-semibold">Use an existing advance</h2>
       <input type="hidden" name="requestKey" value={requestKey} />
       <FormMessage result={state} />
       <Select label="Receipt" name="paymentId" options={payments} />
       <Select label="Invoice" name="salesInvoiceId" options={invoices} />
-      <Field label="Allocation amount (PKR)" name="amount" />
-      <SubmitButton>Allocate advance</SubmitButton>
+      <Field label="Amount to apply (PKR)" name="amount" />
+      <SubmitButton>Apply advance</SubmitButton>
     </form>
   );
 }
