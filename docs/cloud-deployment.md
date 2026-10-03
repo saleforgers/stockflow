@@ -34,3 +34,7 @@ Connect the GitHub repository to Vercel and use Git-based deployments. Configure
 ## Production migrations
 
 The workflow `.github/workflows/deploy-production-database.yml` is manual and targets a protected GitHub `production` Environment. Store only the production `DIRECT_URL` as an environment secret, enable required reviewers, and run it after the migration succeeds against development. The workflow validates Prisma and runs `prisma migrate deploy`; it does not seed or reset the database.
+
+## Client demo release — 2026-10-03
+
+The inventory/documents/reporting upgrade was released from implementation commit `27532cd8f21f2ac5659b48e2da8b185c68b9e3f5`. The protected [migration run](https://github.com/saleforgers/stockflow/actions/runs/37092849451) succeeded and reported eight migrations with none pending. The existing Git-linked Vercel production deployment reached Ready and serves [the canonical production application](https://stockflow-brown-mu.vercel.app). Production login and authorization checks passed; authenticated business workflow checks were performed in development only. See [the delivery record](client-demo-upgrade.md) for verification, additive migrations, deferred features and configuration limitations.

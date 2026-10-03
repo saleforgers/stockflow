@@ -31,4 +31,12 @@ Validation: all 31 unit tests and 15 focused database acceptance tests passed. T
 
 Intentionally deferred: invoice due dates (not in the existing model), damaged returns without restocking, cash-refund UI, percentage discount entry, arbitrary non-Western PDF fonts, and a business-settings editor. Branding is available through documented `BUSINESS_*` environment values; default branding remains StockFlow until owner details are supplied. The PDF export limit is 10,000 statement entries per date range. No statutory accounting, tax, multi-location or landed-cost workflows were added.
 
-Production migration and deployment: pending final release checks. The existing protected GitHub migration workflow and existing Vercel production project will be used.
+## Production release
+
+Implementation commit `27532cd8f21f2ac5659b48e2da8b185c68b9e3f5` was pushed to the existing `main` branch.
+
+The existing protected [production migration workflow](https://github.com/saleforgers/stockflow/actions/runs/37092849451) succeeded against that commit on 2026-10-03. Prisma found all eight committed migrations and reported **no pending migrations to apply**; the run did not apply additional SQL. Database environment values remain owner-managed; the Vercel runtime database identity was not independently compared with the workflow connection.
+
+The existing Vercel project's Git-triggered production deployment `dpl_DgRy2Aw6VV5JVMpBVaZ2uHQZT3qr` reached **Ready**. Build logs confirmed commit `27532cd`; [StockFlow production](https://stockflow-brown-mu.vercel.app) points to this release. The configured Tokyo compute region was retained. No preview environment, production seed, reset, or business test transaction was created.
+
+Concise production checks: `/login` returned 200; inventory, invoices, expenses, reports, P&L, estimates and stock adjustment pages redirected unauthenticated requests to login; invoice/customer-statement/estimate PDF routes returned 401 without a session. Authenticated workflows were verified against the configured development database, not against production. An authenticated owner review remains the final production workflow check.
