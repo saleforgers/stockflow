@@ -15,6 +15,7 @@ import {
 } from "./services";
 import type {
   PurchaseDraftCommand,
+  PurchasePostingPayment,
   PurchaseReturnCommand,
   SupplierPaymentCommand,
 } from "./validation";
@@ -65,12 +66,20 @@ export async function updatePurchaseDraftAction(
 export async function postPurchaseAction(
   id: string,
   _state: ActionResult,
-  _data: FormData,
+  data: FormData,
 ): Promise<ActionResult> {
   void _state;
-  void _data;
   try {
-    await postPurchase(id, await operationalUser());
+    const paymentType = String(data.get("paymentType") ?? "CREDIT");
+    const payment =
+      paymentType === "CREDIT"
+        ? ({ paymentType: "CREDIT" } satisfies PurchasePostingPayment)
+        : ({
+            paymentType,
+            paymentMethodId: String(data.get("paymentMethodId") ?? ""),
+            amount: String(data.get("amount") ?? ""),
+          } as PurchasePostingPayment);
+    await postPurchase(id, await operationalUser(), payment);
   } catch (error) {
     return toActionFailure(error);
   }

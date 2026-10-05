@@ -48,11 +48,18 @@ export async function postInvoiceAction(
   data: FormData,
 ): Promise<ActionResult> {
   try {
+    const paymentType = String(data.get("paymentType") ?? "CREDIT");
     const amount = String(data.get("amount") ?? "").trim();
     await postInvoice(
       id,
       await requireRole(["ADMIN", "MANAGER"]),
-      amount ? { amount, paymentMethodId: String(data.get("paymentMethodId")) } : undefined,
+      paymentType === "CREDIT"
+        ? undefined
+        : {
+            paymentType: paymentType === "PAID" ? "PAID" : "PARTIAL",
+            amount,
+            paymentMethodId: String(data.get("paymentMethodId")),
+          },
     );
   } catch (error) {
     return toActionFailure(error);

@@ -95,10 +95,10 @@ export function getPurchase(id: string) {
 }
 
 export async function getPurchaseFormOptions() {
-  const [suppliers, products] = await Promise.all([
+  const [suppliers, products, supplierBalances, stock] = await Promise.all([
     prisma.supplier.findMany({
       where: { isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
     }),
     prisma.product.findMany({
@@ -108,18 +108,58 @@ export async function getPurchaseFormOptions() {
         sku: true,
         name: true,
         defaultPurchasePrice: true,
+        defaultSellingPrice: true,
         inventoryUnit: { select: { code: true, decimalScale: true } },
       },
       orderBy: [{ name: "asc" }, { id: "asc" }],
     }),
+    prisma.supplierLedgerEntry.groupBy({
+      by: ["supplierId", "effect"],
+      _sum: { amount: true },
+    }),
+    prisma.stockMovement.groupBy({
+      by: ["productId", "direction"],
+      _sum: { quantity: true },
+    }),
   ]);
+  const balanceBySupplier = new Map<string, Decimal>();
+  for (const row of supplierBalances) {
+    const current = balanceBySupplier.get(row.supplierId) ?? new Decimal(0);
+    const amount = decimal(row._sum.amount ?? 0);
+    balanceBySupplier.set(
+      row.supplierId,
+      row.effect === "INCREASE" ? current.plus(amount) : current.minus(amount),
+    );
+  }
+  const stockByProduct = new Map<string, Decimal>();
+  for (const row of stock) {
+    const current = stockByProduct.get(row.productId) ?? new Decimal(0);
+    const quantity = decimal(row._sum.quantity ?? 0);
+    stockByProduct.set(
+      row.productId,
+      row.direction === "IN" ? current.plus(quantity) : current.minus(quantity),
+    );
+  }
   return {
-    suppliers,
+    suppliers: suppliers.map((supplier) => ({
+      ...supplier,
+      accountBalance: (balanceBySupplier.get(supplier.id) ?? new Decimal(0)).toFixed(2),
+    })),
     products: products.map((product) => ({
       ...product,
       defaultPurchasePrice: product.defaultPurchasePrice?.toFixed(4) ?? "",
+      defaultSellingPrice: product.defaultSellingPrice?.toFixed(4) ?? "",
+      currentStock: (stockByProduct.get(product.id) ?? new Decimal(0)).toFixed(),
     })),
   };
+}
+
+export function getActivePurchasePaymentMethods() {
+  return prisma.paymentMethod.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
 }
 
 export async function getSupplierPaymentOptions() {
@@ -178,6 +218,13 @@ export async function getSupplierAccount(supplierId: string) {
       purchases: [],
       payable: "0.00",
       unallocated: "0.00",
+      summary: {
+        openingBalance: "0.00",
+        totalPurchases: "0.00",
+        totalPaid: "0.00",
+        payableBalance: "0.00",
+        advanceBalance: "0.00",
+      },
     };
   }
   const [supplier, entries, payments, purchases] = await Promise.all([
@@ -234,6 +281,19 @@ export async function getSupplierAccount(supplierId: string) {
     purchases,
     payable: running.toFixed(2),
     unallocated: unallocated.toFixed(2),
+    summary: {
+      openingBalance: "0.00",
+      totalPurchases: entries
+        .filter((entry) => entry.entryType === "PURCHASE")
+        .reduce((sum, entry) => sum.plus(entry.amount.toString()), new Decimal(0))
+        .toFixed(2),
+      totalPaid: entries
+        .filter((entry) => entry.entryType === "PAYMENT")
+        .reduce((sum, entry) => sum.plus(entry.amount.toString()), new Decimal(0))
+        .toFixed(2),
+      payableBalance: Decimal.max(running, 0).toFixed(2),
+      advanceBalance: Decimal.max(running.negated(), 0).toFixed(2),
+    },
   };
 }
 

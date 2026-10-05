@@ -1,5 +1,11 @@
 # StockFlow V1 Database Design
 
+## Transaction-screen enhancement supplement — 2026-10-06
+
+Migration `20261006010000_transaction_screen_enhancements` adds `PurchaseLine.unitPurchasePrice`, `grossAmount`, and `lineDiscountAmount`. Existing lines are backfilled as undiscounted (`unitPurchasePrice = unitCost`, `grossAmount = lineTotal`), preserving all historical FIFO costs. New lines retain the entered gross price and fixed PKR discount; `unitCost` remains the net, four-decimal FIFO cost and must reproduce the net line total at currency precision. Database checks reject negative or excessive discounts and non-reconciling net totals.
+
+Immediate purchase payments reuse `Payment`, `SupplierPaymentAllocation`, and `SupplierLedgerEntry`. Purchase posting, inventory layers and movements, payable entry, optional payment, allocation, and payment-status cache all commit in the same serializable transaction. Party balances and current stock displayed on forms remain derived from ledger entries and stock movements; no duplicate balance or stock fields were added.
+
 ## Phase 3 implementation supplement — 2026-10-01
 
 Migration `20261001010000_phase_3_sales_guardrails` adds nullable unique UUID `requestKey` columns to the existing Payment, SaleReturn, and CustomerPaymentAllocation models. Legacy and supplier rows remain null. The customer receipt/invoice pair uniqueness becomes a nonunique lookup index so successive partial advance allocations can be appended. Invoice posting uses the invoice UUID/status as its replay identity; immediate receipt keys use that UUID. Receipts, advance allocation commands, and returns serialize request-key retries with a transaction advisory lock, and durable unique indexes prevent duplicate effects.

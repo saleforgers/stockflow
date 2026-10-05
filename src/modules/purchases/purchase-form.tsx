@@ -13,6 +13,8 @@ type ProductOption = {
   sku: string;
   name: string;
   defaultPurchasePrice: string;
+  defaultSellingPrice: string;
+  currentStock: string;
   inventoryUnit: { code: string; decimalScale: number };
 };
 type LotState = {
@@ -26,6 +28,7 @@ type LotState = {
     productId: string;
     quantity: string;
     unitCost: string;
+    lineDiscountAmount: string;
     notes: string;
   }>;
 };
@@ -44,6 +47,7 @@ const blankLine = (stableKey = key()) => ({
   productId: "",
   quantity: "",
   unitCost: "",
+  lineDiscountAmount: "0",
   notes: "",
 });
 const blankLot = (receivedAt: string, stableKey = key()): LotState => ({
@@ -65,6 +69,16 @@ function safeAmount(quantity: string, unitCost: string) {
   }
 }
 
+function safeNetAmount(quantity: string, unitCost: string, discount: string) {
+  try {
+    return Decimal.max(new Decimal(safeAmount(quantity, unitCost)).minus(discount || 0), 0)
+      .toDecimalPlaces(2)
+      .toFixed(2);
+  } catch {
+    return "0.00";
+  }
+}
+
 export function PurchaseForm({
   action,
   suppliers,
@@ -74,7 +88,7 @@ export function PurchaseForm({
   defaultReceivedAt,
 }: {
   action: (state: ActionResult, data: FormData) => Promise<ActionResult>;
-  suppliers: Array<{ id: string; name: string }>;
+  suppliers: Array<{ id: string; name: string; phone: string | null; accountBalance: string }>;
   products: ProductOption[];
   initial?: PurchaseFormValue;
   defaultDate: string;
@@ -95,9 +109,25 @@ export function PurchaseForm({
     () => new Map(products.map((product) => [product.id, product])),
     [products],
   );
-  const subtotal = value.lots
+  const supplier = suppliers.find((item) => item.id === value.supplierId);
+  const grossSubtotal = value.lots
     .flatMap((lot) => lot.lines)
     .reduce((sum, line) => sum.plus(safeAmount(line.quantity, line.unitCost)), new Decimal(0));
+  const discountTotal = value.lots
+    .flatMap((lot) => lot.lines)
+    .reduce((sum, line) => {
+      try {
+        return sum.plus(line.lineDiscountAmount || 0);
+      } catch {
+        return sum;
+      }
+    }, new Decimal(0));
+  const subtotal = value.lots
+    .flatMap((lot) => lot.lines)
+    .reduce(
+      (sum, line) => sum.plus(safeNetAmount(line.quantity, line.unitCost, line.lineDiscountAmount)),
+      new Decimal(0),
+    );
   let total = subtotal;
   try {
     total = subtotal.plus(value.additionalCharges || 0);
@@ -115,6 +145,7 @@ export function PurchaseForm({
         productId: line.productId,
         quantity: line.quantity,
         unitCost: line.unitCost,
+        lineDiscountAmount: line.lineDiscountAmount,
         notes: line.notes,
       })),
     })),
@@ -206,6 +237,27 @@ export function PurchaseForm({
           />
         </FormField>
       </section>
+      {supplier ? (
+        <section className="card grid gap-4 p-5 text-sm sm:grid-cols-3">
+          <div>
+            <span className="text-slate-500">Phone</span>
+            <div className="font-medium">{supplier.phone || "—"}</div>
+          </div>
+          <div>
+            <span className="text-slate-500">Current supplier payable</span>
+            <div className="font-medium">PKR {supplier.accountBalance}</div>
+          </div>
+          <div className="self-end">
+            <Link
+              className="btn-secondary"
+              href={`/suppliers/${supplier.id}/account`}
+              target="_blank"
+            >
+              View supplier ledger
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       {value.lots.map((lot, lotIndex) => (
         <section className="card overflow-hidden" key={lot.key}>
@@ -251,7 +303,7 @@ export function PurchaseForm({
               const product = productById.get(line.productId);
               return (
                 <div
-                  className="grid gap-3 rounded-lg border border-slate-200 p-3 lg:grid-cols-[2fr_1fr_1fr_1fr_auto]"
+                  className="grid gap-3 rounded-lg border border-slate-200 p-3 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]"
                   key={line.key}
                 >
                   <label className="text-xs font-semibold text-slate-600">
@@ -289,7 +341,7 @@ export function PurchaseForm({
                     />
                   </label>
                   <label className="text-xs font-semibold text-slate-600">
-                    Unit cost
+                    Unit purchase price
                     <input
                       className="input mt-1"
                       inputMode="decimal"
@@ -300,10 +352,22 @@ export function PurchaseForm({
                       required
                     />
                   </label>
+                  <label className="text-xs font-semibold text-slate-600">
+                    Discount (PKR)
+                    <input
+                      className="input mt-1"
+                      inputMode="decimal"
+                      value={line.lineDiscountAmount}
+                      onChange={(event) =>
+                        updateLine(lotIndex, lineIndex, { lineDiscountAmount: event.target.value })
+                      }
+                      required
+                    />
+                  </label>
                   <div className="text-xs font-semibold text-slate-600">
                     Line total
                     <div className="mt-1 py-2 text-sm text-slate-900">
-                      PKR {safeAmount(line.quantity, line.unitCost)}
+                      PKR {safeNetAmount(line.quantity, line.unitCost, line.lineDiscountAmount)}
                     </div>
                   </div>
                   <button
@@ -318,6 +382,24 @@ export function PurchaseForm({
                   >
                     Remove
                   </button>
+                  {product ? (
+                    <div className="flex flex-wrap gap-4 text-xs text-slate-600 lg:col-span-full">
+                      <span>
+                        Current stock: {product.currentStock} {product.inventoryUnit.code}
+                      </span>
+                      <span>
+                        Current selling price:{" "}
+                        {product.defaultSellingPrice ? `PKR ${product.defaultSellingPrice}` : "—"}
+                      </span>
+                      <Link
+                        className="text-blue-700 underline"
+                        href={`/products/${product.id}/history`}
+                        target="_blank"
+                      >
+                        View item history
+                      </Link>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -340,7 +422,15 @@ export function PurchaseForm({
       </button>
       <section className="card ml-auto max-w-md space-y-2 p-5 text-sm">
         <div className="flex justify-between">
-          <span>Subtotal</span>
+          <span>Gross subtotal</span>
+          <strong>PKR {grossSubtotal.toFixed(2)}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Discount total</span>
+          <strong>PKR {discountTotal.toFixed(2)}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Purchase subtotal</span>
           <strong>PKR {subtotal.toFixed(2)}</strong>
         </div>
         <div className="flex justify-between">
@@ -348,7 +438,7 @@ export function PurchaseForm({
           <strong>PKR {value.additionalCharges || "0"}</strong>
         </div>
         <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
-          <span>Total</span>
+          <span>Net payable</span>
           <strong>PKR {total.toFixed(2)}</strong>
         </div>
       </section>
@@ -358,6 +448,109 @@ export function PurchaseForm({
           Cancel
         </Link>
       </div>
+    </form>
+  );
+}
+
+export function PostPurchaseForm({
+  action,
+  methods,
+  total,
+}: {
+  action: (state: ActionResult, data: FormData) => Promise<ActionResult>;
+  methods: Array<{ id: string; name: string }>;
+  total: string;
+}) {
+  const [result, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const [paymentType, setPaymentType] = useState<"PAID" | "CREDIT" | "PARTIAL">("CREDIT");
+  const [amount, setAmount] = useState("0");
+  let remaining = total;
+  try {
+    remaining = Decimal.max(
+      new Decimal(total).minus(paymentType === "CREDIT" ? 0 : amount || 0),
+      0,
+    ).toFixed(2);
+  } catch {
+    /* server validates */
+  }
+  return (
+    <form
+      action={formAction}
+      className="card max-w-xl space-y-4 p-6"
+      onSubmit={(event) => {
+        if (
+          !window.confirm(
+            "Post this purchase? Posted commercial and inventory facts cannot be edited.",
+          )
+        )
+          event.preventDefault();
+      }}
+    >
+      <h2 className="font-semibold">Review and post</h2>
+      <p className="text-sm text-slate-600">
+        Posting creates immutable net-cost inventory layers and the supplier payable. Any immediate
+        payment is recorded atomically.
+      </p>
+      <FormMessage result={result} />
+      <FormField htmlFor="purchase-payment-type" label="Purchase payment status" required>
+        <select
+          id="purchase-payment-type"
+          name="paymentType"
+          className="input"
+          value={paymentType}
+          onChange={(event) => {
+            const next = event.target.value as "PAID" | "CREDIT" | "PARTIAL";
+            setPaymentType(next);
+            setAmount(
+              next === "PAID" ? total : next === "CREDIT" ? "0" : amount === "0" ? "" : amount,
+            );
+          }}
+        >
+          <option value="PAID">Paid / Cash</option>
+          <option value="CREDIT">Credit</option>
+          <option value="PARTIAL">Partial payment</option>
+        </select>
+      </FormField>
+      {paymentType !== "CREDIT" ? (
+        <>
+          <FormField htmlFor="purchase-payment-method" label="Payment method" required>
+            <select id="purchase-payment-method" name="paymentMethodId" className="input" required>
+              <option value="">Select payment method</option>
+              {methods.map((method) => (
+                <option key={method.id} value={method.id}>
+                  {method.name}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField htmlFor="purchase-paid-now" label="Amount paid (PKR)" required>
+            <input
+              id="purchase-paid-now"
+              name="amount"
+              className="input"
+              inputMode="decimal"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              required
+            />
+          </FormField>
+        </>
+      ) : null}
+      <div className="rounded-lg bg-slate-50 p-3 text-sm">
+        <div className="flex justify-between">
+          <span>Net payable</span>
+          <strong>PKR {total}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Amount paid</span>
+          <strong>PKR {paymentType === "CREDIT" ? "0.00" : amount || "0.00"}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Remaining payable</span>
+          <strong>PKR {remaining}</strong>
+        </div>
+      </div>
+      <SubmitButton>Post purchase</SubmitButton>
     </form>
   );
 }

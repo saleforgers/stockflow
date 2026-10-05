@@ -29,23 +29,28 @@ export default async function SupplierAccountPage({
         <Link className="btn-secondary" href="/suppliers">
           Back to suppliers
         </Link>
+        <Link className="btn-secondary" href={`/suppliers/${id}/account/pdf`}>
+          Download PDF statement
+        </Link>
         {canWrite && account.supplier.isActive ? (
           <Link className="btn-primary" href={`/supplier-payments/new?supplierId=${id}`}>
             Record payment
           </Link>
         ) : null}
       </div>
-      <section className="grid gap-4 sm:grid-cols-2">
-        <div className="card-stat">
-          <div className="text-xs font-semibold uppercase text-slate-500">Current payable</div>
-          <div className="mt-1 text-xl font-bold">{formatPkr(account.payable)}</div>
-        </div>
-        <div className="card-stat">
-          <div className="text-xs font-semibold uppercase text-slate-500">
-            Unallocated payments / advance
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {[
+          ["Opening balance", account.summary.openingBalance],
+          ["Total purchases", account.summary.totalPurchases],
+          ["Total paid", account.summary.totalPaid],
+          ["Payable balance", account.summary.payableBalance],
+          ["Credit / advance", account.summary.advanceBalance],
+        ].map(([label, amount]) => (
+          <div className="card-stat" key={label}>
+            <div className="text-xs font-semibold uppercase text-slate-500">{label}</div>
+            <div className="mt-1 text-lg font-bold">{formatPkr(amount)}</div>
           </div>
-          <div className="mt-1 text-xl font-bold">{formatPkr(account.unallocated)}</div>
-        </div>
+        ))}
       </section>
       <section className="card overflow-x-auto">
         <div className="border-b border-slate-200 p-5">
@@ -54,11 +59,11 @@ export default async function SupplierAccountPage({
         <table className="data-table">
           <thead>
             <tr>
-              <th>Entry date</th>
-              <th>Type</th>
+              <th>Date</th>
               <th>Reference</th>
-              <th>Increase</th>
-              <th>Decrease</th>
+              <th>Description / Narration</th>
+              <th>Debit</th>
+              <th>Credit</th>
               <th>Running balance</th>
             </tr>
           </thead>
@@ -66,7 +71,6 @@ export default async function SupplierAccountPage({
             {account.statement.map((entry) => (
               <tr key={entry.id}>
                 <td>{formatDate(entry.entryDate)}</td>
-                <td>{entry.entryType.replaceAll("_", " ")}</td>
                 <td>
                   {entry.purchase?.purchaseNumber ??
                     entry.payment?.paymentNumber ??
@@ -74,8 +78,12 @@ export default async function SupplierAccountPage({
                     entry.reference ??
                     "—"}
                 </td>
-                <td>{entry.effect === "INCREASE" ? formatPkr(entry.amount) : "—"}</td>
+                <td>
+                  {entry.entryType.replaceAll("_", " ")}
+                  {entry.reason ? ` · ${entry.reason}` : ""}
+                </td>
                 <td>{entry.effect === "DECREASE" ? formatPkr(entry.amount) : "—"}</td>
+                <td>{entry.effect === "INCREASE" ? formatPkr(entry.amount) : "—"}</td>
                 <td>{formatPkr(entry.runningBalance)}</td>
               </tr>
             ))}

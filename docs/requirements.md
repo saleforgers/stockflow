@@ -1,5 +1,13 @@
 # StockFlow V1 Requirements Baseline
 
+## Transaction-screen enhancement supplement — 2026-10-06
+
+Sales forms surface the selected customer's phone, derived account balance, ledger shortcut, current product stock, line amount, and item-history shortcut. Historical customer balance remains separate from the current invoice total and invoice balance. Posting presents explicit Paid, Credit, and Partial Payment choices while continuing to use posted customer receipts and allocations.
+
+Purchase forms surface the selected supplier's phone, derived payable, ledger shortcut, current product stock, current default selling price, and item-history shortcut. Purchase lines accept a fixed PKR discount. The entered gross purchase price and discount are retained, while the derived net unit cost is the authoritative FIFO cost. Paid, Credit, and Partial Payment choices reuse supplier payments and allocations; a payment selected during posting commits atomically with the purchase.
+
+Customer and supplier ledgers use Date, Reference, Description/Narration, Debit, Credit, and Running Balance presentation with party-specific summary totals and downloadable statements. Product history is reconstructed from existing stock movements; unit cost is restricted to Admin and Manager. This enhancement does not add percentage discounts, a general ledger, journal vouchers, chart of accounts, multi-store workflows, currency rates, project accounting, or legacy desktop styling.
+
 ## 1. Scope
 
 StockFlow V1 is a web-based inventory and commercial-record system for a general trading business. It must support heterogeneous products without embedding assumptions about iron, sheets, furniture, interior goods, or any other single category.

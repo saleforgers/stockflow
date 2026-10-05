@@ -49,6 +49,7 @@ function draftInput(overrides?: { supplierId?: string; quantity?: string; lots?:
           productId: index % 2 ? kgProductId : pcsProductId,
           quantity: overrides?.quantity ?? (index % 2 ? "2.500" : "2"),
           unitCost: index % 2 ? "40.1234" : "50.0000",
+          lineDiscountAmount: "0",
           notes: marker,
         },
       ],
@@ -213,6 +214,31 @@ describe("Phase 2 purchasing and supplier ledger", () => {
     ).toBe(true);
     expect(purchase.ledgerEntry?.effect).toBe("INCREASE");
     expect(purchase.ledgerEntry?.amount.equals(purchase.totalAmount)).toBe(true);
+  });
+
+  it("posts a discounted net cost and an immediate payment atomically", async () => {
+    const input = draftInput();
+    input.additionalCharges = "0";
+    input.lots[0]!.lines[0]!.lineDiscountAmount = "10";
+    const draft = await createPurchaseDraft(input, actor);
+    await postPurchase(draft.id, actor, {
+      paymentType: "PARTIAL",
+      paymentMethodId: cashMethodId,
+      amount: "25",
+    });
+    const purchase = await db.purchase.findUniqueOrThrow({
+      where: { id: draft.id },
+      include: {
+        lines: { include: { inventoryLot: true } },
+        paymentAllocations: { include: { payment: true } },
+      },
+    });
+    expect(purchase.lines[0]!.grossAmount.toFixed(2)).toBe("100.00");
+    expect(purchase.lines[0]!.lineDiscountAmount.toFixed(2)).toBe("10.00");
+    expect(purchase.lines[0]!.inventoryLot!.unitCost.toFixed(4)).toBe("45.0000");
+    expect(purchase.paymentStatus).toBe("PARTIALLY_PAID");
+    expect(purchase.amountPaidCached.toFixed(2)).toBe("25.00");
+    expect(purchase.paymentAllocations[0]!.payment.status).toBe("POSTED");
   });
 
   it("leaves no posting effects when validation fails inside the transaction", async () => {

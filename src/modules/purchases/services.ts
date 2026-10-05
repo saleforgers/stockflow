@@ -13,9 +13,11 @@ import { normalizeOptionalText } from "@/lib/validation/normalization";
 import { nonnegativeMoney, paymentStatus, positiveMoney, purchaseLineAmount } from "./calculations";
 import {
   purchaseDraftCommandSchema,
+  purchasePostingPaymentSchema,
   purchaseReturnCommandSchema,
   supplierPaymentCommandSchema,
   type PurchaseDraftCommand,
+  type PurchasePostingPayment,
   type PurchaseReturnCommand,
   type SupplierPaymentCommand,
 } from "./validation";
@@ -26,6 +28,9 @@ type PreparedLine = {
   skuSnapshot: string;
   uomCodeSnapshot: string;
   quantity: string;
+  unitPurchasePrice: string;
+  grossAmount: string;
+  lineDiscountAmount: string;
   unitCost: string;
   lineTotal: string;
   notes: string | null;
@@ -77,6 +82,7 @@ async function prepareDraft(transaction: BusinessTransaction, input: PurchaseDra
         line.quantity,
         line.unitCost,
         product.inventoryUnit.decimalScale,
+        line.lineDiscountAmount,
       );
       subtotal = subtotal.plus(calculated.lineTotal);
       return {
@@ -85,6 +91,9 @@ async function prepareDraft(transaction: BusinessTransaction, input: PurchaseDra
         skuSnapshot: product.sku,
         uomCodeSnapshot: product.inventoryUnit.code,
         quantity: calculated.quantity.toFixed(),
+        unitPurchasePrice: calculated.unitPurchasePrice.toFixed(),
+        grossAmount: calculated.grossAmount.toFixed(2),
+        lineDiscountAmount: calculated.lineDiscountAmount.toFixed(2),
         unitCost: calculated.unitCost.toFixed(),
         lineTotal: calculated.lineTotal.toFixed(2),
         notes: normalizeOptionalText(line.notes),
@@ -255,9 +264,14 @@ async function refreshPurchasePaymentStatus(transaction: BusinessTransaction, pu
   });
 }
 
-export async function postPurchase(id: string, actor: AuthorizedUser) {
+export async function postPurchase(
+  id: string,
+  actor: AuthorizedUser,
+  paymentInput: PurchasePostingPayment = { paymentType: "CREDIT" },
+) {
   assertOperationalWriter(actor);
   id = parseIdentifier(id, "Purchase identifier");
+  const payment = parseCommand(purchasePostingPaymentSchema, paymentInput);
   return runInBusinessTransaction(prisma, async (transaction) => {
     await transaction.$queryRaw`SELECT "id" FROM "Purchase" WHERE "id" = ${id}::uuid FOR UPDATE`;
     const purchase = await transaction.purchase.findUnique({
@@ -305,10 +319,15 @@ export async function postPurchase(id: string, actor: AuthorizedUser) {
         }
         const calculated = purchaseLineAmount(
           line.quantity.toString(),
-          line.unitCost.toString(),
+          line.unitPurchasePrice.toString(),
           line.product.inventoryUnit.decimalScale,
+          line.lineDiscountAmount.toString(),
         );
-        if (!calculated.lineTotal.equals(line.lineTotal.toString())) {
+        if (
+          !calculated.grossAmount.equals(line.grossAmount.toString()) ||
+          !calculated.unitCost.equals(line.unitCost.toString()) ||
+          !calculated.lineTotal.equals(line.lineTotal.toString())
+        ) {
           throw new ApplicationError(
             "INVARIANT_VIOLATION",
             "A purchase line total does not reconcile",
@@ -384,10 +403,75 @@ export async function postPurchase(id: string, actor: AuthorizedUser) {
         createdById: actor.id,
       },
     });
-    return transaction.purchase.update({
+    const postedPurchase = await transaction.purchase.update({
       where: { id },
       data: { status: "POSTED", postedAt },
     });
+    if (payment.paymentType !== "CREDIT") {
+      const amount = positiveMoney(payment.amount, "Payment amount");
+      const total = decimal(purchase.totalAmount);
+      if (amount.greaterThan(total)) {
+        throw new ApplicationError("VALIDATION_ERROR", "Payment cannot exceed the purchase total");
+      }
+      if (payment.paymentType === "PAID" && !amount.equals(total)) {
+        throw new ApplicationError("VALIDATION_ERROR", "Paid purchases require the full amount");
+      }
+      if (payment.paymentType === "PARTIAL" && !amount.lessThan(total)) {
+        throw new ApplicationError(
+          "VALIDATION_ERROR",
+          "Partial payment must be less than the purchase total",
+        );
+      }
+      const method = await transaction.paymentMethod.findUnique({
+        where: { id: payment.paymentMethodId },
+      });
+      if (!method?.isActive) {
+        throw new ApplicationError("VALIDATION_ERROR", "Select an active payment method");
+      }
+      const supplierPayment = await transaction.payment.create({
+        data: {
+          requestKey: purchase.id,
+          paymentNumber: await nextDocumentNumber(transaction, "payment"),
+          kind: "SUPPLIER_PAYMENT",
+          status: "POSTED",
+          supplierId: purchase.supplierId,
+          paymentMethodId: method.id,
+          paymentDate: purchase.purchaseDate,
+          amount: amount.toFixed(2),
+          reference: purchase.purchaseNumber,
+          notes: purchase.notes ?? "Payment recorded when purchase was posted",
+          createdById: actor.id,
+          postedAt,
+        },
+      });
+      await transaction.supplierPaymentAllocation.create({
+        data: {
+          paymentId: supplierPayment.id,
+          purchaseId: purchase.id,
+          amount: amount.toFixed(2),
+        },
+      });
+      await transaction.supplierLedgerEntry.create({
+        data: {
+          supplierId: purchase.supplierId,
+          entryDate: purchase.purchaseDate,
+          entryType: "PAYMENT",
+          effect: "DECREASE",
+          amount: amount.toFixed(2),
+          paymentId: supplierPayment.id,
+          reference: supplierPayment.paymentNumber,
+          createdById: actor.id,
+        },
+      });
+      await transaction.purchase.update({
+        where: { id: purchase.id },
+        data: {
+          amountPaidCached: amount.toFixed(2),
+          paymentStatus: paymentStatus(total, amount),
+        },
+      });
+    }
+    return postedPurchase;
   });
 }
 

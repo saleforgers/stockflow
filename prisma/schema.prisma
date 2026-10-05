@@ -361,6 +361,9 @@ model PurchaseLine {
   skuSnapshot         String
   uomCodeSnapshot     String
   quantity            Decimal  @db.Decimal(18, 4)
+  unitPurchasePrice   Decimal  @db.Decimal(18, 4)
+  grossAmount         Decimal  @db.Decimal(18, 2)
+  lineDiscountAmount  Decimal  @default(0) @db.Decimal(18, 2)
   unitCost            Decimal  @db.Decimal(18, 4)
   lineTotal           Decimal  @db.Decimal(18, 2)
   notes               String?

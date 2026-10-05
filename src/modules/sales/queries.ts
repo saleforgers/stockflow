@@ -48,47 +48,81 @@ export function getInvoice(id: string) {
   });
 }
 export async function getSalesOptions() {
-  const [customers, products, paymentMethods, invoices] = await Promise.all([
-    prisma.customer.findMany({
-      where: { isActive: true },
-      select: { id: true, name: true, isWalkIn: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.product.findMany({
-      where: { isActive: true, inventoryUnit: { isActive: true } },
-      select: {
-        id: true,
-        name: true,
-        sku: true,
-        defaultSellingPrice: true,
-        inventoryUnit: { select: { code: true, decimalScale: true } },
-      },
-      orderBy: { name: "asc" },
-    }),
-    prisma.paymentMethod.findMany({
-      where: { isActive: true },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.salesInvoice.findMany({
-      where: { status: "POSTED" },
-      select: {
-        id: true,
-        customerId: true,
-        invoiceNumber: true,
-        totalAmount: true,
-        paymentAllocations: { where: { payment: { status: "POSTED" } }, select: { amount: true } },
-        returns: { where: { status: "POSTED" }, select: { totalAmount: true } },
-      },
-      orderBy: [{ invoiceDate: "asc" }, { id: "asc" }],
-    }),
-  ]);
+  const [customers, products, paymentMethods, invoices, customerBalances, stock] =
+    await Promise.all([
+      prisma.customer.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, phone: true, isWalkIn: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.product.findMany({
+        where: { isActive: true, inventoryUnit: { isActive: true } },
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          defaultSellingPrice: true,
+          inventoryUnit: { select: { code: true, decimalScale: true } },
+        },
+        orderBy: { name: "asc" },
+      }),
+      prisma.paymentMethod.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.salesInvoice.findMany({
+        where: { status: "POSTED" },
+        select: {
+          id: true,
+          customerId: true,
+          invoiceNumber: true,
+          totalAmount: true,
+          paymentAllocations: {
+            where: { payment: { status: "POSTED" } },
+            select: { amount: true },
+          },
+          returns: { where: { status: "POSTED" }, select: { totalAmount: true } },
+        },
+        orderBy: [{ invoiceDate: "asc" }, { id: "asc" }],
+      }),
+      prisma.customerLedgerEntry.groupBy({
+        by: ["customerId", "effect"],
+        _sum: { amount: true },
+      }),
+      prisma.stockMovement.groupBy({
+        by: ["productId", "direction"],
+        _sum: { quantity: true },
+      }),
+    ]);
+  const balanceByCustomer = new Map<string, Decimal>();
+  for (const row of customerBalances) {
+    const current = balanceByCustomer.get(row.customerId) ?? new Decimal(0);
+    const amount = decimal(row._sum.amount ?? 0);
+    balanceByCustomer.set(
+      row.customerId,
+      row.effect === "INCREASE" ? current.plus(amount) : current.minus(amount),
+    );
+  }
+  const stockByProduct = new Map<string, Decimal>();
+  for (const row of stock) {
+    const current = stockByProduct.get(row.productId) ?? new Decimal(0);
+    const quantity = decimal(row._sum.quantity ?? 0);
+    stockByProduct.set(
+      row.productId,
+      row.direction === "IN" ? current.plus(quantity) : current.minus(quantity),
+    );
+  }
   return {
-    customers,
+    customers: customers.map((customer) => ({
+      ...customer,
+      accountBalance: (balanceByCustomer.get(customer.id) ?? new Decimal(0)).toFixed(2),
+    })),
     paymentMethods,
     products: products.map((p) => ({
       ...p,
       defaultSellingPrice: p.defaultSellingPrice?.toFixed(4) ?? "",
+      currentStock: (stockByProduct.get(p.id) ?? new Decimal(0)).toFixed(),
     })),
     invoices: invoices
       .map((i) => ({
@@ -137,6 +171,19 @@ export async function getCustomerAccount(customerId: string) {
     customer,
     statement,
     receivable: balance.toFixed(2),
+    summary: {
+      openingBalance: "0.00",
+      totalSales: entries
+        .filter((entry) => entry.entryType === "SALE")
+        .reduce((sum, entry) => sum.plus(entry.amount.toString()), new Decimal(0))
+        .toFixed(2),
+      totalReceived: entries
+        .filter((entry) => entry.entryType === "PAYMENT")
+        .reduce((sum, entry) => sum.plus(entry.amount.toString()), new Decimal(0))
+        .toFixed(2),
+      outstanding: Decimal.max(balance, 0).toFixed(2),
+      creditBalance: Decimal.max(balance.negated(), 0).toFixed(2),
+    },
     payments: payments.map((p) => ({
       ...p,
       unallocated: decimal(p.amount)
@@ -144,4 +191,34 @@ export async function getCustomerAccount(customerId: string) {
         .toFixed(2),
     })),
   };
+}
+
+export async function getInvoiceAccountSummary(id: string) {
+  if (!isIdentifier(id)) return null;
+  const invoice = await prisma.salesInvoice.findUnique({
+    where: { id },
+    select: {
+      customerId: true,
+      status: true,
+      ledgerEntry: { select: { id: true } },
+    },
+  });
+  if (!invoice) return null;
+  const entries = await prisma.customerLedgerEntry.findMany({
+    where: { customerId: invoice.customerId },
+    select: { id: true, effect: true, amount: true },
+    orderBy: [{ entryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+  });
+  let previous = new Decimal(0);
+  let current = new Decimal(0);
+  let reachedInvoice = invoice.status !== "POSTED";
+  for (const entry of entries) {
+    if (entry.id === invoice.ledgerEntry?.id) reachedInvoice = true;
+    const amount = decimal(entry.amount);
+    current = entry.effect === "INCREASE" ? current.plus(amount) : current.minus(amount);
+    if (!reachedInvoice)
+      previous = entry.effect === "INCREASE" ? previous.plus(amount) : previous.minus(amount);
+  }
+  if (invoice.status !== "POSTED") previous = current;
+  return { previousBalance: previous.toFixed(2), currentOutstanding: current.toFixed(2) };
 }

@@ -1,4 +1,6 @@
 "use client";
+import Decimal from "decimal.js";
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import type { ActionResult } from "@/lib/actions/action-result";
 import { INITIAL_ACTION_RESULT } from "@/lib/actions/action-result";
@@ -8,6 +10,20 @@ import type { InvoiceDraftCommand } from "./validation";
 
 type Action = (state: ActionResult, data: FormData) => Promise<ActionResult>;
 type Option = { id: string; name: string };
+function safeMoney(value: Decimal.Value) {
+  try {
+    return new Decimal(value || 0).toDecimalPlaces(2).toFixed(2);
+  } catch {
+    return "0.00";
+  }
+}
+function safeLineAmount(quantity: string, price: string, discount: string) {
+  try {
+    return safeMoney(new Decimal(quantity || 0).times(price || 0).minus(discount || 0));
+  } catch {
+    return "0.00";
+  }
+}
 function Field({
   label,
   name,
@@ -88,10 +104,11 @@ export function InvoiceForm({
   initial,
 }: {
   action: Action;
-  customers: Option[];
+  customers: (Option & { phone: string | null; accountBalance: string; isWalkIn: boolean })[];
   products: (Option & {
     sku: string;
     defaultSellingPrice: string;
+    currentStock: string;
     inventoryUnit: { code: string; decimalScale: number };
   })[];
   date: string;
@@ -112,6 +129,28 @@ export function InvoiceForm({
       ...c,
       lines: c.lines.map((l, i) => (i === index ? { ...l, [key]: value } : l)),
     }));
+  const customer = customers.find((item) => item.id === command.customerId);
+  const subtotal = command.lines.reduce((sum, line) => {
+    try {
+      return sum.plus(
+        Decimal.max(
+          new Decimal(line.quantity || 0)
+            .times(line.unitPrice || 0)
+            .toDecimalPlaces(2)
+            .minus(line.lineDiscountAmount || 0),
+          0,
+        ),
+      );
+    } catch {
+      return sum;
+    }
+  }, new Decimal(0));
+  let invoiceTotal = subtotal;
+  try {
+    invoiceTotal = Decimal.max(subtotal.minus(command.invoiceDiscountAmount || 0), 0);
+  } catch {
+    /* server validates */
+  }
   return (
     <form action={formAction} className="card space-y-5 p-6">
       <FormMessage result={state} />
@@ -132,6 +171,29 @@ export function InvoiceForm({
           onChange={(v) => setCommand((c) => ({ ...c, invoiceDate: v }))}
         />
       </div>
+      {customer ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <span className="text-slate-500">Phone</span>
+              <div className="font-medium">{customer.phone || "—"}</div>
+            </div>
+            <div>
+              <span className="text-slate-500">Previous account balance</span>
+              <div className="font-medium">PKR {customer.accountBalance}</div>
+            </div>
+            <div className="self-end">
+              <Link
+                className="btn-secondary"
+                href={`/customers/${customer.id}/account`}
+                target="_blank"
+              >
+                View customer ledger
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {command.lines.map((line, i) => (
         <fieldset key={i} className="space-y-3 rounded-lg border p-4">
           <legend>Line {i + 1}</legend>
@@ -175,6 +237,37 @@ export function InvoiceForm({
               onChange={(v) => changeLine(i, "lineDiscountAmount", v)}
             />
           </div>
+          {line.productId
+            ? (() => {
+                const selected = products.find((product) => product.id === line.productId);
+                if (!selected) return null;
+                let shortage = false;
+                try {
+                  shortage = new Decimal(line.quantity || 0).greaterThan(selected.currentStock);
+                } catch {
+                  /* server validates */
+                }
+                return (
+                  <div className="flex flex-wrap items-center gap-3 text-sm">
+                    <span className={shortage ? "font-medium text-red-700" : "text-slate-600"}>
+                      Available: {selected.currentStock} {selected.inventoryUnit.code}
+                      {shortage ? " — insufficient stock" : ""}
+                    </span>
+                    <span>
+                      Line amount: PKR{" "}
+                      {safeLineAmount(line.quantity, line.unitPrice, line.lineDiscountAmount)}
+                    </span>
+                    <Link
+                      className="text-blue-700 underline"
+                      href={`/products/${selected.id}/history`}
+                      target="_blank"
+                    >
+                      View item history
+                    </Link>
+                  </div>
+                );
+              })()
+            : null}
           <Field
             label="Line notes"
             name={`notes-${i}`}
@@ -225,6 +318,28 @@ export function InvoiceForm({
       <p className="text-sm text-slate-500">
         Save to review validated totals before posting. Discounts are fixed PKR amounts.
       </p>
+      <section className="ml-auto max-w-md space-y-2 rounded-lg border border-slate-200 p-4 text-sm">
+        <div className="flex justify-between">
+          <span>Subtotal</span>
+          <strong>PKR {subtotal.toFixed(2)}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Invoice discount</span>
+          <strong>PKR {safeMoney(command.invoiceDiscountAmount)}</strong>
+        </div>
+        <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
+          <span>Current invoice total</span>
+          <strong>PKR {invoiceTotal.toFixed(2)}</strong>
+        </div>
+        {customer ? (
+          <div className="flex justify-between">
+            <span>Total customer outstanding after invoice</span>
+            <strong>
+              PKR {new Decimal(customer.accountBalance).plus(invoiceTotal).toFixed(2)}
+            </strong>
+          </div>
+        ) : null}
+      </section>
       <SubmitButton>Save draft</SubmitButton>
     </form>
   );
@@ -233,12 +348,18 @@ export function PostInvoiceForm({
   action,
   methods,
   walkIn,
+  total,
 }: {
   action: Action;
   methods: Option[];
   walkIn: boolean;
+  total: string;
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const [paymentType, setPaymentType] = useState<"PAID" | "CREDIT" | "PARTIAL">(
+    walkIn ? "PAID" : "CREDIT",
+  );
+  const [amount, setAmount] = useState(walkIn ? total : "0");
   return (
     <form
       action={formAction}
@@ -248,13 +369,52 @@ export function PostInvoiceForm({
       }}
     >
       <FormMessage result={state} />
-      <p>
-        {walkIn
-          ? "Full payment is required for this walk-in invoice."
-          : "Optional receipt at posting. Leave amount empty for a credit invoice."}
-      </p>
-      <Select label="Receipt method" name="paymentMethodId" options={methods} required={walkIn} />
-      <Field label="Receipt amount (PKR)" name="amount" required={walkIn} />
+      <Select
+        label="Sale type / payment status"
+        name="paymentType"
+        options={
+          walkIn
+            ? [{ id: "PAID", name: "Cash / Paid" }]
+            : [
+                { id: "PAID", name: "Cash / Paid" },
+                { id: "CREDIT", name: "Credit" },
+                { id: "PARTIAL", name: "Partial payment" },
+              ]
+        }
+        value={paymentType}
+        onChange={(value) => {
+          const next = value as "PAID" | "CREDIT" | "PARTIAL";
+          setPaymentType(next);
+          setAmount(
+            next === "PAID" ? total : next === "CREDIT" ? "0" : amount === "0" ? "" : amount,
+          );
+        }}
+      />
+      {paymentType !== "CREDIT" ? (
+        <>
+          <Select label="Receipt method" name="paymentMethodId" options={methods} />
+          <Field label="Paid now (PKR)" name="amount" value={amount} onChange={setAmount} />
+        </>
+      ) : null}
+      <div className="rounded-lg bg-slate-50 p-3 text-sm">
+        <div className="flex justify-between">
+          <span>Invoice total</span>
+          <strong>PKR {total}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Paid now</span>
+          <strong>PKR {paymentType === "CREDIT" ? "0.00" : safeMoney(amount)}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Invoice balance</span>
+          <strong>
+            PKR{" "}
+            {paymentType === "CREDIT"
+              ? total
+              : Decimal.max(new Decimal(total).minus(amount || 0), 0).toFixed(2)}
+          </strong>
+        </div>
+      </div>
       <SubmitButton>Post invoice</SubmitButton>
     </form>
   );

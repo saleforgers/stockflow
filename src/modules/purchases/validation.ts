@@ -7,8 +7,18 @@ export const purchaseLineCommandSchema = z.object({
   productId: z.string().uuid(),
   quantity: decimalString,
   unitCost: decimalString,
+  lineDiscountAmount: decimalString.default("0"),
   notes: optionalText,
 });
+
+export const purchasePostingPaymentSchema = z.discriminatedUnion("paymentType", [
+  z.object({ paymentType: z.literal("CREDIT") }),
+  z.object({
+    paymentType: z.enum(["PAID", "PARTIAL"]),
+    paymentMethodId: z.string().uuid(),
+    amount: decimalString,
+  }),
+]);
 
 export const purchaseLotCommandSchema = z.object({
   id: z.string().uuid().optional(),
@@ -62,3 +72,4 @@ export const purchaseReturnCommandSchema = z.object({
 export type PurchaseDraftCommand = z.infer<typeof purchaseDraftCommandSchema>;
 export type SupplierPaymentCommand = z.infer<typeof supplierPaymentCommandSchema>;
 export type PurchaseReturnCommand = z.infer<typeof purchaseReturnCommandSchema>;
+export type PurchasePostingPayment = z.infer<typeof purchasePostingPaymentSchema>;

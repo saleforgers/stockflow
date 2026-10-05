@@ -90,6 +90,9 @@ export default async function ProductDetailPage({
       <Link className="btn-secondary" href="/products">
         Back to products
       </Link>
+      <Link className="btn-secondary" href={`/products/${id}/history`}>
+        View item history
+      </Link>
     </>
   );
 }

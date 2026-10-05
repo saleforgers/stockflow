@@ -35,13 +35,40 @@ export function positiveUnitCost(value: string): Decimal {
   return cost;
 }
 
-export function purchaseLineAmount(quantity: string, unitCost: string, scale: number) {
+export function purchaseLineAmount(
+  quantity: string,
+  unitPurchasePrice: string,
+  scale: number,
+  discount = "0",
+) {
   const validatedQuantity = validateQuantity(quantity, scale);
-  const validatedCost = positiveUnitCost(unitCost);
+  const validatedPrice = positiveUnitCost(unitPurchasePrice);
+  const grossAmount = roundMoney(validatedQuantity.times(validatedPrice));
+  const lineDiscountAmount = nonnegativeMoney(discount, "Line discount");
+  if (lineDiscountAmount.greaterThan(grossAmount)) {
+    throw new ApplicationError("VALIDATION_ERROR", "Line discount exceeds gross amount");
+  }
+  const lineTotal = grossAmount.minus(lineDiscountAmount);
+  if (lineTotal.lessThanOrEqualTo(0)) {
+    throw new ApplicationError(
+      "VALIDATION_ERROR",
+      "Discounted line total must be greater than zero",
+    );
+  }
+  const unitCost = lineTotal.div(validatedQuantity).toDecimalPlaces(4);
+  if (!roundMoney(validatedQuantity.times(unitCost)).equals(lineTotal)) {
+    throw new ApplicationError(
+      "VALIDATION_ERROR",
+      "Discount cannot be represented exactly at the product quantity and cost precision",
+    );
+  }
   return {
     quantity: validatedQuantity,
-    unitCost: validatedCost,
-    lineTotal: roundMoney(validatedQuantity.times(validatedCost)),
+    unitPurchasePrice: validatedPrice,
+    grossAmount,
+    lineDiscountAmount,
+    unitCost,
+    lineTotal,
   };
 }
 

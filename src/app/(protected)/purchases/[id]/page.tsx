@@ -1,14 +1,14 @@
 import Decimal from "decimal.js";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CommandForm } from "@/components/ui/command-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getCurrentUser } from "@/lib/auth/session";
 import { decimal } from "@/lib/decimal/decimal";
 import { formatDate, formatPkr, formatQuantity } from "@/lib/format";
 import { postPurchaseAction } from "@/modules/purchases/actions";
-import { getPurchase } from "@/modules/purchases/queries";
+import { PostPurchaseForm } from "@/modules/purchases/purchase-form";
+import { getActivePurchasePaymentMethods, getPurchase } from "@/modules/purchases/queries";
 
 export default async function PurchaseDetailPage({
   params,
@@ -21,6 +21,8 @@ export default async function PurchaseDetailPage({
   const purchase = await getPurchase(id);
   if (!purchase) notFound();
   const canWrite = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const paymentMethods =
+    canWrite && purchase.status === "DRAFT" ? await getActivePurchasePaymentMethods() : [];
   const allocated = purchase.paymentAllocations.reduce(
     (sum, row) => sum.plus(row.amount.toString()),
     new Decimal(0),
@@ -144,7 +146,9 @@ export default async function PurchaseDetailPage({
                 <tr>
                   <th>Product</th>
                   <th>Quantity</th>
-                  <th>Unit cost</th>
+                  <th>Purchase price</th>
+                  <th>Discount</th>
+                  <th>Net unit cost</th>
                   <th>Line total</th>
                   <th>Available</th>
                 </tr>
@@ -159,6 +163,8 @@ export default async function PurchaseDetailPage({
                     <td>
                       {formatQuantity(line.quantity)} {line.uomCodeSnapshot}
                     </td>
+                    <td>{formatPkr(line.unitPurchasePrice)}</td>
+                    <td>{formatPkr(line.lineDiscountAmount)}</td>
                     <td>{formatPkr(line.unitCost)}</td>
                     <td>{formatPkr(line.lineTotal)}</td>
                     <td>
@@ -216,18 +222,11 @@ export default async function PurchaseDetailPage({
         </section>
       ) : null}
       {canWrite && purchase.status === "DRAFT" ? (
-        <section className="card max-w-xl space-y-3 p-6">
-          <h2 className="font-semibold">Review and post</h2>
-          <p className="text-sm text-slate-600">
-            Posting creates immutable inventory cost layers, inbound movements, and the supplier
-            payable entry in one transaction.
-          </p>
-          <CommandForm
-            action={postPurchaseAction.bind(null, purchase.id)}
-            label="Post purchase"
-            confirm="Post this purchase? Posted commercial and inventory facts cannot be edited."
-          />
-        </section>
+        <PostPurchaseForm
+          action={postPurchaseAction.bind(null, purchase.id)}
+          methods={paymentMethods}
+          total={purchase.totalAmount.toFixed(2)}
+        />
       ) : null}
     </>
   );

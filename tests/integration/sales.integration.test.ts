@@ -245,10 +245,18 @@ describe("Phase 3 sales acceptance (append-only disposable fixtures)", () => {
     const draft = await createInvoiceDraft(input(productId, "1", walkIn.id), actor);
     await expect(postInvoice(draft.id, actor)).rejects.toThrow("fully paid");
     await expect(
-      postInvoice(draft.id, actor, { paymentMethodId: randomUUID(), amount: "100" }),
+      postInvoice(draft.id, actor, {
+        paymentType: "PAID",
+        paymentMethodId: randomUUID(),
+        amount: "100",
+      }),
     ).rejects.toThrow();
     expect(await db.stockMovement.count({ where: { productId, movementType: "SALE" } })).toBe(0);
-    await postInvoice(draft.id, actor, { paymentMethodId: cash, amount: "100" });
+    await postInvoice(draft.id, actor, {
+      paymentType: "PAID",
+      paymentMethodId: cash,
+      amount: "100",
+    });
     expect(
       (await db.salesInvoice.findUniqueOrThrow({ where: { id: draft.id } })).paymentStatus,
     ).toBe("PAID");

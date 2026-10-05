@@ -1,5 +1,11 @@
 # StockFlow Development Plan
 
+## Transaction-screen enhancement implementation — 2026-10-06
+
+Implemented in code for development acceptance: sales and purchase party context, explicit posting payment choices, purchase fixed discounts with net FIFO cost, account presentation summaries, downloadable invoice/account PDFs, and stock-movement-backed product history.
+
+Full GL, journal vouchers, multi-store workflows, and percentage discounts remain out of scope. Production migration and deployment require the existing controlled deployment workflow after development database acceptance.
+
 ## Delivery principles
 
 Development proceeds in narrow vertical slices. A module is not complete merely because its screens exist: schema, validation, transaction service, authorization, tests, and audit behavior must agree. Financial and inventory posting is implemented before dashboards or reports depend on it.

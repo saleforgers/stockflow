@@ -217,7 +217,7 @@ export async function recordCustomerReceipt(input: ReceiptCommand, actor: Author
 export async function postInvoice(
   id: string,
   actor: AuthorizedUser,
-  payment?: { paymentMethodId: string; amount: string },
+  payment?: { paymentType: "PAID" | "PARTIAL"; paymentMethodId: string; amount: string },
 ) {
   assertOperationalWriter(actor);
   id = parseIdentifier(id, "Invoice");
@@ -248,6 +248,19 @@ export async function postInvoice(
         "VALIDATION_ERROR",
         "Invoice customer, location or lines are invalid",
       );
+    if (payment) {
+      const paidNow = positiveMoney(payment.amount, "Receipt");
+      const total = decimal(invoice.totalAmount);
+      if (paidNow.greaterThan(total))
+        throw new ApplicationError("VALIDATION_ERROR", "Receipt cannot exceed the invoice total");
+      if (payment.paymentType === "PAID" && !paidNow.equals(total))
+        throw new ApplicationError("VALIDATION_ERROR", "Paid invoices require the full amount");
+      if (payment.paymentType === "PARTIAL" && !paidNow.lessThan(total))
+        throw new ApplicationError(
+          "VALIDATION_ERROR",
+          "Partial payment must be less than the invoice total",
+        );
+    }
     if (
       invoice.customer.isWalkIn &&
       decimal(invoice.totalAmount).greaterThan(0) &&

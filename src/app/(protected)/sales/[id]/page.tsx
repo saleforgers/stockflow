@@ -5,13 +5,16 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireUser } from "@/lib/auth/session";
 import { formatPkr, formatQuantity, formatDate } from "@/lib/format";
 import { decimal } from "@/lib/decimal/decimal";
-import { getInvoice, getSalesOptions } from "@/modules/sales/queries";
+import { getInvoice, getInvoiceAccountSummary, getSalesOptions } from "@/modules/sales/queries";
 import { PostInvoiceForm } from "@/modules/sales/forms";
 import { postInvoiceAction } from "@/modules/sales/actions";
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const invoice = await getInvoice(id);
+  const [invoice, accountSummary] = await Promise.all([
+    getInvoice(id),
+    getInvoiceAccountSummary(id),
+  ]);
   if (!invoice) notFound();
   const writer = user.role !== "STAFF";
   const receipts = invoice.paymentAllocations.reduce(
@@ -23,6 +26,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     new Decimal(0),
   );
   const options = writer && invoice.status === "DRAFT" ? await getSalesOptions() : null;
+  const invoiceBalance = Decimal.max(
+    decimal(invoice.totalAmount).minus(receipts).minus(credits),
+    0,
+  );
   return (
     <>
       <PageHeader
@@ -30,6 +37,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         description={`${invoice.customerNameSnapshot} · ${formatDate(invoice.invoiceDate)} · ${invoice.status}`}
       />
       <div className="flex flex-wrap gap-3">
+        {invoice.status === "POSTED" ? (
+          <Link className="btn-secondary" href={`/sales/${id}/pdf`}>
+            Download invoice PDF
+          </Link>
+        ) : null}
         <Link className="btn-secondary" href={`/customers/${invoice.customerId}/account`}>
           Customer account
         </Link>
@@ -52,6 +64,36 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           </>
         )}
       </div>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="card-stat">
+          <div className="text-xs font-semibold uppercase text-slate-500">Customer phone</div>
+          <div className="mt-1 font-semibold">{invoice.customerPhoneSnapshot ?? "—"}</div>
+        </div>
+        <div className="card-stat">
+          <div className="text-xs font-semibold uppercase text-slate-500">
+            Previous account balance
+          </div>
+          <div className="mt-1 font-semibold">
+            {formatPkr(accountSummary?.previousBalance ?? 0)}
+          </div>
+        </div>
+        <div className="card-stat">
+          <div className="text-xs font-semibold uppercase text-slate-500">Invoice total</div>
+          <div className="mt-1 font-semibold">{formatPkr(invoice.totalAmount)}</div>
+        </div>
+        <div className="card-stat">
+          <div className="text-xs font-semibold uppercase text-slate-500">Invoice balance</div>
+          <div className="mt-1 font-semibold">{formatPkr(invoiceBalance)}</div>
+        </div>
+        <div className="card-stat">
+          <div className="text-xs font-semibold uppercase text-slate-500">
+            Current customer outstanding
+          </div>
+          <div className="mt-1 font-semibold">
+            {formatPkr(accountSummary?.currentOutstanding ?? 0)}
+          </div>
+        </div>
+      </section>
       <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
@@ -107,6 +149,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           action={postInvoiceAction.bind(null, id)}
           methods={options.paymentMethods}
           walkIn={invoice.customer.isWalkIn && decimal(invoice.totalAmount).greaterThan(0)}
+          total={invoice.totalAmount.toFixed(2)}
         />
       )}
       {invoice.status === "POSTED" && (

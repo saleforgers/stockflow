@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
+import Decimal from "decimal.js";
 import { DEFAULT_PAGE_SIZE, paginationFor } from "@/lib/pagination";
+import { isIdentifier } from "@/lib/validation/identifier";
 
 export async function listProducts(input: {
   search?: string;
@@ -36,10 +38,63 @@ export async function listProducts(input: {
 }
 
 export function getProduct(id: string) {
+  if (!isIdentifier(id)) return null;
   return prisma.product.findUnique({
     where: { id },
     include: { category: true, inventoryUnit: true, preferredSupplier: true },
   });
+}
+
+export async function getProductHistory(id: string) {
+  if (!isIdentifier(id)) return null;
+  const [product, movements] = await Promise.all([
+    prisma.product.findUnique({
+      where: { id },
+      include: { inventoryUnit: true },
+    }),
+    prisma.stockMovement.findMany({
+      where: { productId: id },
+      include: {
+        inventoryLot: { include: { purchaseLot: { select: { lotNumber: true } } } },
+        createdBy: { select: { name: true } },
+        purchaseLine: { include: { purchase: { select: { purchaseNumber: true } } } },
+        purchaseReturnLine: { include: { purchaseReturn: { select: { returnNumber: true } } } },
+        saleLotAllocation: {
+          include: {
+            salesInvoiceLine: { include: { salesInvoice: { select: { invoiceNumber: true } } } },
+          },
+        },
+        saleReturnAllocation: {
+          include: {
+            saleReturnLine: { include: { saleReturn: { select: { returnNumber: true } } } },
+          },
+        },
+        adjustmentLine: { include: { stockAdjustment: { select: { adjustmentNumber: true } } } },
+      },
+      orderBy: [{ occurredAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    }),
+  ]);
+  if (!product) return null;
+  let running = new Decimal(0);
+  const history = movements.map((movement) => {
+    running =
+      movement.direction === "IN"
+        ? running.plus(movement.quantity.toString())
+        : running.minus(movement.quantity.toString());
+    return {
+      ...movement,
+      runningQuantity: running.toFixed(),
+      reference:
+        movement.purchaseLine?.purchase.purchaseNumber ??
+        movement.purchaseReturnLine?.purchaseReturn.returnNumber ??
+        movement.saleLotAllocation?.salesInvoiceLine.salesInvoice.invoiceNumber ??
+        movement.saleReturnAllocation?.saleReturnLine.saleReturn.returnNumber ??
+        movement.adjustmentLine?.stockAdjustment.adjustmentNumber ??
+        "—",
+      lotNumber: movement.inventoryLot?.purchaseLot?.lotNumber ?? "—",
+    };
+  });
+  return { product, history, currentStock: running.toFixed() };
 }
 
 export async function getProductFormOptions() {
@@ -58,4 +113,3 @@ export function getProductFilterCategories() {
     orderBy: { name: "asc" },
   });
 }
-

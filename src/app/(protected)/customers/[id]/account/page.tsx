@@ -28,17 +28,33 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           Record receipt
         </Link>
       )}
+      <Link className="btn-secondary" href={`/customers/${id}/account/pdf`}>
+        Download PDF statement
+      </Link>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {[
+          ["Opening balance", account.summary.openingBalance],
+          ["Total sales", account.summary.totalSales],
+          ["Total received", account.summary.totalReceived],
+          ["Outstanding", account.summary.outstanding],
+          ["Credit balance", account.summary.creditBalance],
+        ].map(([label, amount]) => (
+          <div className="card-stat" key={label}>
+            <div className="text-xs font-semibold uppercase text-slate-500">{label}</div>
+            <div className="mt-1 text-lg font-bold">{formatPkr(amount)}</div>
+          </div>
+        ))}
+      </section>
       <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>
               <th>Date</th>
               <th>Reference</th>
-              <th>Type</th>
-              <th>Effect</th>
-              <th>Amount</th>
+              <th>Description / Narration</th>
+              <th>Debit</th>
+              <th>Credit</th>
               <th>Running balance</th>
-              <th>Reason</th>
             </tr>
           </thead>
           <tbody>
@@ -54,11 +70,13 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     e.reference
                   )}
                 </td>
-                <td>{e.entryType}</td>
-                <td>{e.effect}</td>
-                <td>{formatPkr(e.amount)}</td>
+                <td>
+                  {e.entryType.replaceAll("_", " ")}
+                  {e.reason ? ` · ${e.reason}` : ""}
+                </td>
+                <td>{e.effect === "INCREASE" ? formatPkr(e.amount) : "—"}</td>
+                <td>{e.effect === "DECREASE" ? formatPkr(e.amount) : "—"}</td>
                 <td>{formatPkr(e.runningBalance)}</td>
-                <td>{e.reason}</td>
               </tr>
             ))}
           </tbody>
