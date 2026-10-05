@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
-import { getCurrentUser } from "@/lib/auth/session";
+import { requireUser } from "@/lib/auth/session";
 import { formatDate, formatPkr } from "@/lib/format";
 import { getSupplierAccount } from "@/modules/purchases/queries";
 
@@ -12,7 +12,8 @@ export default async function SupplierAccountPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const [{ id }, query, user] = await Promise.all([params, searchParams, getCurrentUser()]);
+  const user = await requireUser();
+  const [{ id }, query] = await Promise.all([params, searchParams]);
   const account = await getSupplierAccount(id);
   if (!account.supplier) notFound();
   const canWrite = user?.role === "ADMIN" || user?.role === "MANAGER";

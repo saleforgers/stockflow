@@ -1,11 +1,11 @@
 import Decimal from "decimal.js";
-import { requireUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/session";
 import { decimal } from "@/lib/decimal/decimal";
 import { pdfResponse, simpleTextPdf } from "@/lib/pdf/simple-pdf";
 import { getInvoice, getInvoiceAccountSummary } from "@/modules/sales/queries";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  await requireUser();
+  if (!(await getCurrentUser())) return new Response("Unauthorized", { status: 401 });
   const { id } = await params;
   const [invoice, account] = await Promise.all([getInvoice(id), getInvoiceAccountSummary(id)]);
   if (!invoice) return new Response("Invoice not found", { status: 404 });

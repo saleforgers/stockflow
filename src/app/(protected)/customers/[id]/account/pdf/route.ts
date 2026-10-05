@@ -1,9 +1,9 @@
-import { requireUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/session";
 import { pdfResponse, simpleTextPdf } from "@/lib/pdf/simple-pdf";
 import { getCustomerAccount } from "@/modules/sales/queries";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  await requireUser();
+  if (!(await getCurrentUser())) return new Response("Unauthorized", { status: 401 });
   const { id } = await params;
   const account = await getCustomerAccount(id);
   if (!account?.customer) return new Response("Customer not found", { status: 404 });

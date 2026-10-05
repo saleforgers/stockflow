@@ -1,9 +1,9 @@
-import { requireUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/session";
 import { pdfResponse, simpleTextPdf } from "@/lib/pdf/simple-pdf";
 import { getSupplierAccount } from "@/modules/purchases/queries";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  await requireUser();
+  if (!(await getCurrentUser())) return new Response("Unauthorized", { status: 401 });
   const { id } = await params;
   const account = await getSupplierAccount(id);
   if (!account.supplier) return new Response("Supplier not found", { status: 404 });
