@@ -33,6 +33,10 @@ No default credential is seeded. Set `STOCKFLOW_ADMIN_NAME`, `STOCKFLOW_ADMIN_EM
 
 The command uses the server/admin `DIRECT_URL`, validates and normalizes the input, hashes the password with Better Auth, and creates the User plus credential Account atomically. A PostgreSQL advisory transaction lock prevents concurrent bootstrap races. If any Admin exists, the command refuses replay. Further user-management UI is deferred.
 
+## Admin credential recovery
+
+If an existing Admin has no Better Auth credential record, has forgotten the password, or was deactivated, set `STOCKFLOW_ADMIN_EMAIL` and `STOCKFLOW_ADMIN_PASSWORD` as process-only environment values and run `npm run admin:recover`. The command only accepts an existing `ADMIN`; it atomically creates or updates the Better Auth credential, marks the user active and email-verified, and revokes existing sessions. It never prints the password. Remove the recovery values immediately afterward.
+
 ## Role policy
 
 - `ADMIN`: may view and mutate Phase 1B master data.

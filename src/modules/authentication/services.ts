@@ -6,7 +6,12 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { ApplicationError } from "@/lib/errors/application-error";
 import { parseCommand } from "@/lib/validation/command";
 
-import { firstAdminSchema, type FirstAdminInput } from "./validation";
+import {
+  adminRecoverySchema,
+  firstAdminSchema,
+  type AdminRecoveryInput,
+  type FirstAdminInput,
+} from "./validation";
 
 export async function bootstrapFirstAdmin(
   input: FirstAdminInput,
@@ -46,6 +51,58 @@ export async function bootstrapFirstAdmin(
       });
 
       return user;
+    },
+    {
+      isolationLevel: "Serializable",
+      maxWait: 15_000,
+      timeout: 30_000,
+    },
+  );
+}
+
+export async function recoverAdminCredential(
+  input: AdminRecoveryInput,
+  prisma: PrismaClient,
+): Promise<{ id: string; reactivated: boolean }> {
+  const command = parseCommand(adminRecoverySchema, input);
+  const passwordHash = await hashPassword(command.password);
+
+  return prisma.$transaction(
+    async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"stockflow:admin-credential-recovery"}))`;
+
+      const user = await transaction.user.findUnique({
+        where: { email: command.email },
+        select: { id: true, role: true, isActive: true },
+      });
+
+      if (!user || user.role !== "ADMIN") {
+        throw new ApplicationError("NOT_FOUND", "No Admin exists for that email");
+      }
+
+      await transaction.account.upsert({
+        where: {
+          providerId_accountId: {
+            providerId: "credential",
+            accountId: user.id,
+          },
+        },
+        update: { password: passwordHash, userId: user.id },
+        create: {
+          id: randomUUID(),
+          accountId: user.id,
+          providerId: "credential",
+          userId: user.id,
+          password: passwordHash,
+        },
+      });
+      await transaction.user.update({
+        where: { id: user.id },
+        data: { isActive: true, emailVerified: true },
+      });
+      await transaction.session.deleteMany({ where: { userId: user.id } });
+
+      return { id: user.id, reactivated: !user.isActive };
     },
     {
       isolationLevel: "Serializable",

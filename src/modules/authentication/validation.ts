@@ -10,3 +10,7 @@ export const firstAdminSchema = z.object({
 });
 
 export type FirstAdminInput = z.infer<typeof firstAdminSchema>;
+
+export const adminRecoverySchema = firstAdminSchema.pick({ email: true, password: true });
+
+export type AdminRecoveryInput = z.infer<typeof adminRecoverySchema>;

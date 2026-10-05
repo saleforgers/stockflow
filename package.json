@@ -12,6 +12,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "admin:bootstrap": "tsx scripts/bootstrap-first-admin.ts",
+    "admin:recover": "tsx scripts/recover-admin-credential.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
