@@ -5,8 +5,13 @@ import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { FormField } from "@/components/ui/form-field";
 import { FormMessage } from "@/components/ui/form-message";
+import { PartySelector } from "@/components/party-selector";
+import { ProductSelector } from "@/components/product-selector";
+import { QuickPartyDialog } from "@/components/quick-party-dialog";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { INITIAL_ACTION_RESULT, type ActionResult } from "@/lib/actions/action-result";
+import type { PartyOption, QuickPartyAction } from "@/lib/parties/quick-create";
+import { appendParty, withSelectedParty } from "@/lib/parties/selection";
 
 type ProductOption = {
   id: string;
@@ -68,7 +73,6 @@ function safeAmount(quantity: string, unitCost: string) {
     return "0.00";
   }
 }
-
 function safeNetAmount(quantity: string, unitCost: string, discount: string) {
   try {
     return Decimal.max(new Decimal(safeAmount(quantity, unitCost)).minus(discount || 0), 0)
@@ -86,13 +90,15 @@ export function PurchaseForm({
   initial,
   defaultDate,
   defaultReceivedAt,
+  quickCreateAction,
 }: {
   action: (state: ActionResult, data: FormData) => Promise<ActionResult>;
-  suppliers: Array<{ id: string; name: string; phone: string | null; accountBalance: string }>;
+  suppliers: PartyOption[];
   products: ProductOption[];
   initial?: PurchaseFormValue;
   defaultDate: string;
   defaultReceivedAt: string;
+  quickCreateAction?: QuickPartyAction;
 }) {
   const [result, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
   const [value, setValue] = useState<PurchaseFormValue>(
@@ -105,11 +111,24 @@ export function PurchaseForm({
       lots: [blankLot(defaultReceivedAt, "initial-lot-0")],
     },
   );
+  const [supplierOptions, setSupplierOptions] = useState(suppliers);
+  const [showSupplierDialog, setShowSupplierDialog] = useState(false);
   const productById = useMemo(
     () => new Map(products.map((product) => [product.id, product])),
     [products],
   );
-  const supplier = suppliers.find((item) => item.id === value.supplierId);
+  const productOptions = useMemo(
+    () =>
+      products.map((product) => ({
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        stock: product.currentStock,
+        inventoryUnit: product.inventoryUnit,
+      })),
+    [products],
+  );
+  const supplier = supplierOptions.find((item) => item.id === value.supplierId);
   const grossSubtotal = value.lots
     .flatMap((lot) => lot.lines)
     .reduce((sum, line) => sum.plus(safeAmount(line.quantity, line.unitCost)), new Decimal(0));
@@ -176,279 +195,287 @@ export function PurchaseForm({
     }));
 
   return (
-    <form action={formAction} className="space-y-6">
-      <input name="payload" type="hidden" value={JSON.stringify(payload)} />
-      <FormMessage result={result} />
-      <section className="card grid gap-5 p-6 sm:grid-cols-2">
-        <FormField htmlFor="supplier" label="Supplier" required>
-          <select
-            className="input"
-            id="supplier"
-            value={value.supplierId}
-            onChange={(event) => setValue({ ...value, supplierId: event.target.value })}
-            required
+    <>
+      <form action={formAction} className="space-y-6">
+        <input name="payload" type="hidden" value={JSON.stringify(payload)} />
+        <FormMessage result={result} />
+        <section className="card grid gap-5 p-6 sm:grid-cols-2">
+          <FormField htmlFor="supplier" label="Supplier" required>
+            <PartySelector
+              addLabel="Add New Supplier"
+              allLabel="All Suppliers"
+              id="supplier"
+              parties={supplierOptions}
+              placeholder="Select Supplier"
+              recentLabel="Recent Suppliers"
+              value={value.supplierId}
+              onAddNew={quickCreateAction ? () => setShowSupplierDialog(true) : undefined}
+              onChange={(id) => setValue((current) => withSelectedParty(current, "supplierId", id))}
+            />
+          </FormField>
+          <FormField htmlFor="purchaseDate" label="Purchase / bill date" required>
+            <input
+              className="input"
+              id="purchaseDate"
+              type="date"
+              value={value.purchaseDate}
+              onChange={(event) => setValue({ ...value, purchaseDate: event.target.value })}
+              required
+            />
+          </FormField>
+          <FormField htmlFor="supplierInvoiceRef" label="Supplier reference">
+            <input
+              className="input"
+              id="supplierInvoiceRef"
+              maxLength={160}
+              value={value.supplierInvoiceRef}
+              onChange={(event) => setValue({ ...value, supplierInvoiceRef: event.target.value })}
+            />
+          </FormField>
+          <FormField
+            htmlFor="additionalCharges"
+            label="Additional charges (PKR)"
+            hint="Recorded on the bill; not allocated into inventory cost."
           >
-            <option value="">Select supplier</option>
-            {suppliers.map((supplier) => (
-              <option key={supplier.id} value={supplier.id}>
-                {supplier.name}
-              </option>
-            ))}
-          </select>
-        </FormField>
-        <FormField htmlFor="purchaseDate" label="Purchase / bill date" required>
-          <input
-            className="input"
-            id="purchaseDate"
-            type="date"
-            value={value.purchaseDate}
-            onChange={(event) => setValue({ ...value, purchaseDate: event.target.value })}
-            required
-          />
-        </FormField>
-        <FormField htmlFor="supplierInvoiceRef" label="Supplier reference">
-          <input
-            className="input"
-            id="supplierInvoiceRef"
-            maxLength={160}
-            value={value.supplierInvoiceRef}
-            onChange={(event) => setValue({ ...value, supplierInvoiceRef: event.target.value })}
-          />
-        </FormField>
-        <FormField
-          htmlFor="additionalCharges"
-          label="Additional charges (PKR)"
-          hint="Recorded on the bill; not allocated into inventory cost."
-        >
-          <input
-            className="input"
-            id="additionalCharges"
-            inputMode="decimal"
-            value={value.additionalCharges}
-            onChange={(event) => setValue({ ...value, additionalCharges: event.target.value })}
-          />
-        </FormField>
-        <FormField htmlFor="notes" label="Notes">
-          <textarea
-            className="input min-h-20"
-            id="notes"
-            value={value.notes}
-            onChange={(event) => setValue({ ...value, notes: event.target.value })}
-          />
-        </FormField>
-      </section>
-      {supplier ? (
-        <section className="card grid gap-4 p-5 text-sm sm:grid-cols-3">
-          <div>
-            <span className="text-slate-500">Phone</span>
-            <div className="font-medium">{supplier.phone || "—"}</div>
-          </div>
-          <div>
-            <span className="text-slate-500">Current supplier payable</span>
-            <div className="font-medium">PKR {supplier.accountBalance}</div>
-          </div>
-          <div className="self-end">
-            <Link
-              className="btn-secondary"
-              href={`/suppliers/${supplier.id}/account`}
-              target="_blank"
-            >
-              View supplier ledger
-            </Link>
-          </div>
+            <input
+              className="input"
+              id="additionalCharges"
+              inputMode="decimal"
+              value={value.additionalCharges}
+              onChange={(event) => setValue({ ...value, additionalCharges: event.target.value })}
+            />
+          </FormField>
+          <FormField htmlFor="notes" label="Notes">
+            <textarea
+              className="input min-h-20"
+              id="notes"
+              value={value.notes}
+              onChange={(event) => setValue({ ...value, notes: event.target.value })}
+            />
+          </FormField>
         </section>
-      ) : null}
-
-      {value.lots.map((lot, lotIndex) => (
-        <section className="card overflow-hidden" key={lot.key}>
-          <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 bg-slate-50 p-4">
-            <div className="grid flex-1 gap-3 sm:grid-cols-2">
-              <FormField
-                htmlFor={`lot-ref-${lot.key}`}
-                label={`Lot ${lotIndex + 1} supplier reference`}
-              >
-                <input
-                  className="input"
-                  id={`lot-ref-${lot.key}`}
-                  value={lot.supplierLotReference}
-                  onChange={(event) =>
-                    updateLot(lotIndex, { supplierLotReference: event.target.value })
-                  }
-                />
-              </FormField>
-              <FormField htmlFor={`lot-date-${lot.key}`} label="Received date and time" required>
-                <input
-                  className="input"
-                  id={`lot-date-${lot.key}`}
-                  type="datetime-local"
-                  value={lot.receivedAt}
-                  onChange={(event) => updateLot(lotIndex, { receivedAt: event.target.value })}
-                  required
-                />
-              </FormField>
+        {supplier ? (
+          <section className="card grid gap-4 p-5 text-sm sm:grid-cols-3">
+            <div>
+              <span className="text-slate-500">Phone</span>
+              <div className="font-medium">{supplier.phone || "—"}</div>
             </div>
-            <button
-              className="btn-danger"
-              disabled={value.lots.length === 1}
-              type="button"
-              onClick={() =>
-                setValue({ ...value, lots: value.lots.filter((_, index) => index !== lotIndex) })
-              }
-            >
-              Remove lot
-            </button>
-          </div>
-          <div className="space-y-3 p-4">
-            {lot.lines.map((line, lineIndex) => {
-              const product = productById.get(line.productId);
-              return (
-                <div
-                  className="grid gap-3 rounded-lg border border-slate-200 p-3 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]"
-                  key={line.key}
+            <div>
+              <span className="text-slate-500">Current supplier payable</span>
+              <div className="font-medium">PKR {supplier.accountBalance}</div>
+            </div>
+            <div className="self-end">
+              <Link
+                className="btn-secondary"
+                href={`/suppliers/${supplier.id}/account`}
+                target="_blank"
+              >
+                View supplier ledger
+              </Link>
+            </div>
+          </section>
+        ) : null}
+
+        {value.lots.map((lot, lotIndex) => (
+          <section className="card overflow-visible" key={lot.key}>
+            <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 bg-slate-50 p-4">
+              <div className="grid flex-1 gap-3 sm:grid-cols-2">
+                <FormField
+                  htmlFor={`lot-ref-${lot.key}`}
+                  label={`Lot ${lotIndex + 1} supplier reference`}
                 >
-                  <label className="text-xs font-semibold text-slate-600">
-                    Product
-                    <select
-                      className="input mt-1"
-                      value={line.productId}
-                      onChange={(event) => {
-                        const selected = productById.get(event.target.value);
-                        updateLine(lotIndex, lineIndex, {
-                          productId: event.target.value,
-                          unitCost: line.unitCost || selected?.defaultPurchasePrice || "",
-                        });
-                      }}
-                      required
-                    >
-                      <option value="">Select product</option>
-                      {products.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.sku} — {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-xs font-semibold text-slate-600">
-                    Quantity {product ? `(${product.inventoryUnit.code})` : ""}
-                    <input
-                      className="input mt-1"
-                      inputMode="decimal"
-                      value={line.quantity}
-                      onChange={(event) =>
-                        updateLine(lotIndex, lineIndex, { quantity: event.target.value })
-                      }
-                      required
-                    />
-                  </label>
-                  <label className="text-xs font-semibold text-slate-600">
-                    Unit purchase price
-                    <input
-                      className="input mt-1"
-                      inputMode="decimal"
-                      value={line.unitCost}
-                      onChange={(event) =>
-                        updateLine(lotIndex, lineIndex, { unitCost: event.target.value })
-                      }
-                      required
-                    />
-                  </label>
-                  <label className="text-xs font-semibold text-slate-600">
-                    Discount (PKR)
-                    <input
-                      className="input mt-1"
-                      inputMode="decimal"
-                      value={line.lineDiscountAmount}
-                      onChange={(event) =>
-                        updateLine(lotIndex, lineIndex, { lineDiscountAmount: event.target.value })
-                      }
-                      required
-                    />
-                  </label>
-                  <div className="text-xs font-semibold text-slate-600">
-                    Amount
-                    <div className="mt-1 py-2 text-sm text-slate-900">
-                      PKR {safeNetAmount(line.quantity, line.unitCost, line.lineDiscountAmount)}
-                    </div>
-                  </div>
-                  <button
-                    className="btn-danger self-end"
-                    disabled={lot.lines.length === 1}
-                    type="button"
-                    onClick={() =>
-                      updateLot(lotIndex, {
-                        lines: lot.lines.filter((_, index) => index !== lineIndex),
-                      })
+                  <input
+                    className="input"
+                    id={`lot-ref-${lot.key}`}
+                    value={lot.supplierLotReference}
+                    onChange={(event) =>
+                      updateLot(lotIndex, { supplierLotReference: event.target.value })
                     }
+                  />
+                </FormField>
+                <FormField htmlFor={`lot-date-${lot.key}`} label="Received date and time" required>
+                  <input
+                    className="input"
+                    id={`lot-date-${lot.key}`}
+                    type="datetime-local"
+                    value={lot.receivedAt}
+                    onChange={(event) => updateLot(lotIndex, { receivedAt: event.target.value })}
+                    required
+                  />
+                </FormField>
+              </div>
+              <button
+                className="btn-danger"
+                disabled={value.lots.length === 1}
+                type="button"
+                onClick={() =>
+                  setValue({ ...value, lots: value.lots.filter((_, index) => index !== lotIndex) })
+                }
+              >
+                Remove lot
+              </button>
+            </div>
+            <div className="space-y-3 p-4">
+              {lot.lines.map((line, lineIndex) => {
+                const product = productById.get(line.productId);
+                return (
+                  <div
+                    className="grid gap-3 rounded-lg border border-slate-200 p-3 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]"
+                    key={line.key}
                   >
-                    Remove
-                  </button>
-                  {product ? (
-                    <div className="flex flex-wrap gap-4 text-xs text-slate-600 lg:col-span-full">
-                      <span>
-                        Current stock: {product.currentStock} {product.inventoryUnit.code}
-                      </span>
-                      <span>
-                        Current selling price:{" "}
-                        {product.defaultSellingPrice ? `PKR ${product.defaultSellingPrice}` : "—"}
-                      </span>
-                      <Link
-                        className="text-blue-700 underline"
-                        href={`/products/${product.id}/history`}
-                        target="_blank"
-                      >
-                        View item history
-                      </Link>
+                    <div className="text-xs font-semibold text-slate-600">
+                      <label htmlFor={`product-${line.key}`}>Product</label>
+                      <div className="mt-1">
+                        <ProductSelector
+                          id={`product-${line.key}`}
+                          products={productOptions}
+                          value={line.productId}
+                          onChange={(id) => {
+                            const selected = productById.get(id);
+                            updateLine(lotIndex, lineIndex, {
+                              productId: id,
+                              unitCost: line.unitCost || selected?.defaultPurchasePrice || "",
+                            });
+                          }}
+                        />
+                      </div>
                     </div>
-                  ) : null}
-                </div>
-              );
-            })}
-            <button
-              className="btn-secondary"
-              type="button"
-              onClick={() => updateLot(lotIndex, { lines: [...lot.lines, blankLine()] })}
-            >
-              Add product line
-            </button>
+                    <label className="text-xs font-semibold text-slate-600">
+                      Quantity {product ? `(${product.inventoryUnit.code})` : ""}
+                      <input
+                        className="input mt-1"
+                        inputMode="decimal"
+                        value={line.quantity}
+                        onChange={(event) =>
+                          updateLine(lotIndex, lineIndex, { quantity: event.target.value })
+                        }
+                        required
+                      />
+                    </label>
+                    <label className="text-xs font-semibold text-slate-600">
+                      Unit purchase price
+                      <input
+                        className="input mt-1"
+                        inputMode="decimal"
+                        value={line.unitCost}
+                        onChange={(event) =>
+                          updateLine(lotIndex, lineIndex, { unitCost: event.target.value })
+                        }
+                        required
+                      />
+                    </label>
+                    <label className="text-xs font-semibold text-slate-600">
+                      Discount (PKR)
+                      <input
+                        className="input mt-1"
+                        inputMode="decimal"
+                        value={line.lineDiscountAmount}
+                        onChange={(event) =>
+                          updateLine(lotIndex, lineIndex, {
+                            lineDiscountAmount: event.target.value,
+                          })
+                        }
+                        required
+                      />
+                    </label>
+                    <div className="text-xs font-semibold text-slate-600">
+                      Amount
+                      <div className="mt-1 py-2 text-sm text-slate-900">
+                        PKR {safeNetAmount(line.quantity, line.unitCost, line.lineDiscountAmount)}
+                      </div>
+                    </div>
+                    <button
+                      className="btn-danger self-end"
+                      disabled={lot.lines.length === 1}
+                      type="button"
+                      onClick={() =>
+                        updateLot(lotIndex, {
+                          lines: lot.lines.filter((_, index) => index !== lineIndex),
+                        })
+                      }
+                    >
+                      Remove
+                    </button>
+                    {product ? (
+                      <div className="flex flex-wrap gap-4 text-xs text-slate-600 lg:col-span-full">
+                        <span>
+                          Current stock: {product.currentStock} {product.inventoryUnit.code}
+                        </span>
+                        <span>
+                          Current selling price:{" "}
+                          {product.defaultSellingPrice ? `PKR ${product.defaultSellingPrice}` : "—"}
+                        </span>
+                        <Link
+                          className="text-blue-700 underline"
+                          href={`/products/${product.id}/history`}
+                          target="_blank"
+                        >
+                          View item history
+                        </Link>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={() => updateLot(lotIndex, { lines: [...lot.lines, blankLine()] })}
+              >
+                Add product line
+              </button>
+            </div>
+          </section>
+        ))}
+        <button
+          className="btn-secondary"
+          type="button"
+          onClick={() => setValue({ ...value, lots: [...value.lots, blankLot(defaultReceivedAt)] })}
+        >
+          Add purchase lot
+        </button>
+        <section className="card ml-auto max-w-md space-y-2 p-5 text-sm">
+          <div className="flex justify-between">
+            <span>Gross subtotal</span>
+            <strong>PKR {grossSubtotal.toFixed(2)}</strong>
+          </div>
+          <div className="flex justify-between">
+            <span>Discount total</span>
+            <strong>PKR {discountTotal.toFixed(2)}</strong>
+          </div>
+          <div className="flex justify-between">
+            <span>Purchase subtotal</span>
+            <strong>PKR {subtotal.toFixed(2)}</strong>
+          </div>
+          <div className="flex justify-between">
+            <span>Additional charges</span>
+            <strong>PKR {value.additionalCharges || "0"}</strong>
+          </div>
+          <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
+            <span>Net payable</span>
+            <strong>PKR {total.toFixed(2)}</strong>
           </div>
         </section>
-      ))}
-      <button
-        className="btn-secondary"
-        type="button"
-        onClick={() => setValue({ ...value, lots: [...value.lots, blankLot(defaultReceivedAt)] })}
-      >
-        Add purchase lot
-      </button>
-      <section className="card ml-auto max-w-md space-y-2 p-5 text-sm">
-        <div className="flex justify-between">
-          <span>Gross subtotal</span>
-          <strong>PKR {grossSubtotal.toFixed(2)}</strong>
+        <div className="flex gap-3">
+          <SubmitButton disabled={!supplier}>Save draft</SubmitButton>
+          <Link className="btn-secondary" href="/purchases">
+            Cancel
+          </Link>
         </div>
-        <div className="flex justify-between">
-          <span>Discount total</span>
-          <strong>PKR {discountTotal.toFixed(2)}</strong>
-        </div>
-        <div className="flex justify-between">
-          <span>Purchase subtotal</span>
-          <strong>PKR {subtotal.toFixed(2)}</strong>
-        </div>
-        <div className="flex justify-between">
-          <span>Additional charges</span>
-          <strong>PKR {value.additionalCharges || "0"}</strong>
-        </div>
-        <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
-          <span>Net payable</span>
-          <strong>PKR {total.toFixed(2)}</strong>
-        </div>
-      </section>
-      <div className="flex gap-3">
-        <SubmitButton>Save draft</SubmitButton>
-        <Link className="btn-secondary" href="/purchases">
-          Cancel
-        </Link>
-      </div>
-    </form>
+      </form>
+      {quickCreateAction ? (
+        <QuickPartyDialog
+          action={quickCreateAction}
+          kind="supplier"
+          open={showSupplierDialog}
+          onClose={() => setShowSupplierDialog(false)}
+          onCreated={(party) => {
+            setSupplierOptions((current) => appendParty(current, party));
+            setValue((current) => withSelectedParty(current, "supplierId", party.id));
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 

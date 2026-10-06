@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireUser } from "@/lib/auth/session";
 import { formatPkr, formatQuantity, formatDate } from "@/lib/format";
 import { decimal } from "@/lib/decimal/decimal";
-import { getInvoice, getInvoiceAccountSummary, getSalesOptions } from "@/modules/sales/queries";
+import { getInvoice, getSalesOptions } from "@/modules/sales/queries";
 import { PostInvoiceForm } from "@/modules/sales/forms";
 import { postInvoiceAction } from "@/modules/sales/actions";
 import { invoiceStatus } from "@/lib/labels";
@@ -142,6 +142,7 @@ export default async function Page({
           action={postInvoiceAction.bind(null, id)}
           methods={options.paymentMethods}
           walkIn={invoice.customer.isWalkIn && decimal(invoice.totalAmount).gt(0)}
+          total={invoice.totalAmount.toFixed(2)}
         />
       )}
       {invoice.status === "POSTED" && (

@@ -5,7 +5,13 @@ import { redirect } from "next/navigation";
 import type { ActionResult } from "@/lib/actions/action-result";
 import { toActionFailure } from "@/lib/actions/action-result";
 import { requireRole } from "@/lib/auth/session";
-import { createSupplier, setSupplierActive, updateSupplier } from "./services";
+import type { QuickPartyActionResult } from "@/lib/parties/quick-create";
+import {
+  createSupplier,
+  createTransactionSupplier,
+  setSupplierActive,
+  updateSupplier,
+} from "./services";
 
 const inputFrom = (data: FormData) => ({
   name: String(data.get("name") ?? ""),
@@ -26,6 +32,25 @@ export async function createSupplierAction(
   }
   revalidatePath("/suppliers");
   redirect("/suppliers?success=created");
+}
+export async function quickCreateSupplierAction(data: FormData): Promise<QuickPartyActionResult> {
+  try {
+    const supplier = await createTransactionSupplier(inputFrom(data), await requireRole(["ADMIN"]));
+    revalidatePath("/suppliers");
+    revalidatePath("/purchases");
+    return {
+      ok: true,
+      message: "Supplier added",
+      party: {
+        id: supplier.id,
+        name: supplier.name,
+        phone: supplier.phone,
+        accountBalance: "0.00",
+      },
+    };
+  } catch (error) {
+    return toActionFailure(error);
+  }
 }
 export async function updateSupplierAction(
   id: string,

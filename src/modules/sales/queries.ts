@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import { decimal } from "@/lib/decimal/decimal";
 import { isIdentifier } from "@/lib/validation/identifier";
 import { paginationFor, DEFAULT_PAGE_SIZE } from "@/lib/pagination";
+import { recentPartyIds } from "@/lib/parties/recent";
+import { isDemoProduct } from "@/modules/maintenance/fixture-policy";
 
 export async function listInvoices(search: string, page: number) {
   const where = search
@@ -64,11 +66,17 @@ export function getInvoice(id: string) {
   });
 }
 export async function getSalesOptions(withInvoices = true) {
-  const [customers, products, paymentMethods, invoices, stock] = await Promise.all([
+  const [customers, recentInvoices, products, paymentMethods, invoices, stock] = await Promise.all([
     prisma.customer.findMany({
       where: { isActive: true },
-      select: { id: true, name: true, isWalkIn: true },
+      select: { id: true, name: true, phone: true, isWalkIn: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.salesInvoice.findMany({
+      where: { status: "POSTED", customer: { isActive: true, isWalkIn: false } },
+      select: { customerId: true },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 100,
     }),
     prisma.product.findMany({
       where: { isActive: true, inventoryUnit: { isActive: true } },
@@ -110,6 +118,12 @@ export async function getSalesOptions(withInvoices = true) {
       _sum: { quantity: true },
     }),
   ]);
+  const recentCustomerIds = new Set(
+    recentPartyIds(
+      recentInvoices.map((invoice) => ({ partyId: invoice.customerId })),
+      customers,
+    ),
+  );
 
   const balanceByCustomer = new Map<string, Decimal>();
   if (customers.length > 0) {
@@ -124,7 +138,9 @@ export async function getSalesOptions(withInvoices = true) {
       const balance = balanceByCustomer.get(entry.customerId) ?? new Decimal(0);
       balanceByCustomer.set(
         entry.customerId,
-        entry.effect === "INCREASE" ? balance.plus(entry.amount.toString()) : balance.minus(entry.amount.toString()),
+        entry.effect === "INCREASE"
+          ? balance.plus(entry.amount.toString())
+          : balance.minus(entry.amount.toString()),
       );
     }
   }
@@ -132,23 +148,26 @@ export async function getSalesOptions(withInvoices = true) {
   return {
     customers: customers.map((customer) => ({
       ...customer,
+      recent: recentCustomerIds.has(customer.id),
       accountBalance: (balanceByCustomer.get(customer.id) ?? new Decimal(0)).toFixed(2),
     })),
     paymentMethods,
-    products: products.map((p) => ({
-      ...p,
-      defaultSellingPrice: p.defaultSellingPrice?.toFixed(4) ?? "",
-      available: stock
-        .filter((s) => s.productId === p.id)
-        .reduce(
-          (sum, s) =>
-            s.direction === "IN"
-              ? sum.plus(s._sum.quantity?.toString() ?? "0")
-              : sum.minus(s._sum.quantity?.toString() ?? "0"),
-          new Decimal(0),
-        )
-        .toFixed(),
-    })),
+    products: products
+      .filter((p) => !isDemoProduct(p.name, p.sku))
+      .map((p) => ({
+        ...p,
+        defaultSellingPrice: p.defaultSellingPrice?.toFixed(4) ?? "",
+        available: stock
+          .filter((s) => s.productId === p.id)
+          .reduce(
+            (sum, s) =>
+              s.direction === "IN"
+                ? sum.plus(s._sum.quantity?.toString() ?? "0")
+                : sum.minus(s._sum.quantity?.toString() ?? "0"),
+            new Decimal(0),
+          )
+          .toFixed(),
+      })),
     invoices: invoices
       .map((i) => ({
         id: i.id,

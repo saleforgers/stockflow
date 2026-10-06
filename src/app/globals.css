@@ -20,6 +20,21 @@
   backdrop-filter: blur(3px);
 }
 
+.form-dialog {
+  width: min(640px, 94vw);
+  max-height: 90dvh;
+  margin: auto;
+  padding: 0;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 24px 80px #0f172a66;
+}
+.form-dialog::backdrop {
+  background: #0f172a99;
+  backdrop-filter: blur(2px);
+}
+
 @media print {
   aside,
   header,

@@ -4,9 +4,10 @@ import { currentBusinessDate } from "@/lib/format";
 import { InvoiceForm } from "@/modules/sales/forms";
 import { getSalesOptions } from "@/modules/sales/queries";
 import { saveInvoiceAction } from "@/modules/sales/actions";
+import { quickCreateCustomerAction } from "@/modules/customers/actions";
 import { randomUUID } from "node:crypto";
 export default async function Page() {
-  await requireRole(["ADMIN", "MANAGER"]);
+  const user = await requireRole(["ADMIN", "MANAGER"]);
   const options = await getSalesOptions(false);
   return (
     <>
@@ -18,6 +19,7 @@ export default async function Page() {
         methods={options.paymentMethods}
         requestKey={randomUUID()}
         date={currentBusinessDate()}
+        quickCreateAction={user.role === "ADMIN" ? quickCreateCustomerAction : undefined}
       />
     </>
   );

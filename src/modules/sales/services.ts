@@ -6,7 +6,7 @@ import { decimal, validateQuantity } from "@/lib/decimal/decimal";
 import { allocateInvoiceDiscount } from "@/lib/decimal/discount-allocation";
 import { ApplicationError } from "@/lib/errors/application-error";
 import { parseCommand } from "@/lib/validation/command";
-import { parseIdentifier } from "@/lib/validation/identifier";
+import { isIdentifier, parseIdentifier } from "@/lib/validation/identifier";
 import { parseBusinessDate } from "@/lib/validation/business-date";
 import { normalizeOptionalText } from "@/lib/validation/normalization";
 import { nonnegativeMoney, positiveMoney, paymentStatus } from "@/modules/purchases/calculations";
@@ -120,16 +120,14 @@ export async function updateInvoiceDraft(
   });
 }
 async function settled(tx: BusinessTransaction, id: string) {
-  const [payments, returns] = await Promise.all([
-    tx.customerPaymentAllocation.aggregate({
-      where: { salesInvoiceId: id, payment: { status: "POSTED" } },
-      _sum: { amount: true },
-    }),
-    tx.saleReturn.aggregate({
-      where: { salesInvoiceId: id, status: "POSTED" },
-      _sum: { totalAmount: true },
-    }),
-  ]);
+  const payments = await tx.customerPaymentAllocation.aggregate({
+    where: { salesInvoiceId: id, payment: { status: "POSTED" } },
+    _sum: { amount: true },
+  });
+  const returns = await tx.saleReturn.aggregate({
+    where: { salesInvoiceId: id, status: "POSTED" },
+    _sum: { totalAmount: true },
+  });
   return decimal(payments._sum.amount ?? 0).plus(decimal(returns._sum.totalAmount ?? 0));
 }
 async function refresh(tx: BusinessTransaction, id: string) {
@@ -146,6 +144,9 @@ async function refresh(tx: BusinessTransaction, id: string) {
   });
 }
 async function receipt(tx: BusinessTransaction, input: ReceiptCommand, actor: AuthorizedUser) {
+  if (!isIdentifier(input.paymentMethodId)) {
+    throw new ApplicationError("VALIDATION_ERROR", "Please select a valid payment method.");
+  }
   const c = parseCommand(receiptSchema, input);
   // Advisory lock also serializes retries before a request-key row exists.
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${c.requestKey}, 0))::text`;
@@ -156,12 +157,12 @@ async function receipt(tx: BusinessTransaction, input: ReceiptCommand, actor: Au
     return existing;
   }
   const amount = positiveMoney(c.amount, "Receipt amount");
-  const [customer, method] = await Promise.all([
-    tx.customer.findUnique({ where: { id: c.customerId } }),
-    tx.paymentMethod.findUnique({ where: { id: c.paymentMethodId } }),
-  ]);
-  if (!customer?.isActive || !method?.isActive)
-    throw new ApplicationError("VALIDATION_ERROR", "Select an active customer and payment method");
+  const customer = await tx.customer.findUnique({ where: { id: c.customerId } });
+  const method = await tx.paymentMethod.findUnique({ where: { id: c.paymentMethodId } });
+  if (!customer?.isActive)
+    throw new ApplicationError("VALIDATION_ERROR", "Select an active customer");
+  if (!method?.isActive)
+    throw new ApplicationError("VALIDATION_ERROR", "Please select a valid payment method.");
   const allocations = new Map<string, Decimal>();
   for (const a of c.allocations)
     allocations.set(
@@ -285,7 +286,7 @@ export async function postInvoice(
     )
       throw new ApplicationError(
         "VALIDATION_ERROR",
-        "Walk-in invoices must be fully paid at posting",
+        "Walk-in sales must be fully paid. Select or create a named customer for credit/partial sales.",
       );
     // Lock ALL matching layers, including depleted rows, in a stable product/id order.
     // This coordinates with purchase returns and concurrent sale returns using the same rows.
@@ -330,6 +331,34 @@ export async function postInvoice(
         },
         orderBy: [{ receivedAt: "asc" }, { id: "asc" }],
       });
+      const layerStock = lots.reduce(
+        (available, lot) => available.plus(lot.availableQuantity.toString()),
+        new Decimal(0),
+      );
+      if (layerStock.lessThan(line.quantity.toString())) {
+        const movements = await tx.stockMovement.groupBy({
+          by: ["direction"],
+          where: { productId: line.productId, locationId: invoice.locationId },
+          _sum: { quantity: true },
+        });
+        const movementStock = movements.reduce(
+          (available, movement) =>
+            movement.direction === "IN"
+              ? available.plus(movement._sum.quantity?.toString() ?? "0")
+              : available.minus(movement._sum.quantity?.toString() ?? "0"),
+          new Decimal(0),
+        );
+        if (movementStock.greaterThanOrEqualTo(line.quantity.toString())) {
+          throw new ApplicationError(
+            "INVARIANT_VIOLATION",
+            "Stock exists in movement history but no available inventory lot is available for this sale.",
+          );
+        }
+        throw new ApplicationError(
+          "INSUFFICIENT_STOCK",
+          `Insufficient available stock for ${line.product.name}.`,
+        );
+      }
       for (const item of fifoPlan(lots, line.quantity)) {
         const allocation = await tx.saleLotAllocation.create({
           data: {

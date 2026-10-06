@@ -14,6 +14,7 @@ import {
 } from "../../src/modules/categories/services";
 import {
   createCustomer,
+  createTransactionCustomer,
   setCustomerActive,
   updateCustomer,
 } from "../../src/modules/customers/services";
@@ -21,6 +22,7 @@ import { createProduct, setProductActive } from "../../src/modules/products/serv
 import { listSuppliers } from "../../src/modules/suppliers/queries";
 import {
   createSupplier,
+  createTransactionSupplier,
   setSupplierActive,
   updateSupplier,
 } from "../../src/modules/suppliers/services";
@@ -314,5 +316,31 @@ describe("Phase 1B master-data services", () => {
     await expect(
       db.customer.create({ data: { name: "Second Walk-in", isWalkIn: true, notes: marker } }),
     ).rejects.toBeTruthy();
+  });
+
+  it("quick-creates transaction parties without duplicates and preserves Admin authorization", async () => {
+    const customerInput = {
+      name: `${prefix}Quick Customer ${unique()}`,
+      phone: "0300-1111111",
+      notes: marker,
+    };
+    const supplierInput = {
+      name: `${prefix}Quick Supplier ${unique()}`,
+      phone: "0300-2222222",
+      notes: marker,
+    };
+
+    const customer = await createTransactionCustomer(customerInput, admin);
+    const supplier = await createTransactionSupplier(supplierInput, admin);
+    expect(customer.isWalkIn).toBe(false);
+    expect(supplier.name).toBe(supplierInput.name);
+    await expect(createTransactionCustomer(customerInput, admin)).rejects.toThrow("already exists");
+    await expect(createTransactionSupplier(supplierInput, admin)).rejects.toThrow("already exists");
+    await expect(
+      createTransactionCustomer({ ...customerInput, name: `${customerInput.name} Staff` }, staff),
+    ).rejects.toThrow("permission");
+    await expect(
+      createTransactionSupplier({ ...supplierInput, name: `${supplierInput.name} Staff` }, staff),
+    ).rejects.toThrow("permission");
   });
 });

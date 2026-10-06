@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { toActionFailure, type ActionResult } from "@/lib/actions/action-result";
 import { ApplicationError } from "@/lib/errors/application-error";
+import { isIdentifier } from "@/lib/validation/identifier";
 import {
   createInvoiceDraft,
   updateInvoiceDraft,
@@ -14,17 +15,29 @@ import {
 } from "./services";
 import type { InvoiceDraftCommand, ReceiptCommand, SaleReturnCommand } from "./validation";
 import { nonnegativeMoney } from "@/modules/purchases/calculations";
-function paymentInput(data: FormData) {
+type InvoicePaymentInput = {
+  paymentType: "PAID" | "PARTIAL";
+  paymentMethodId: string;
+  amount: string;
+};
+function paymentInput(data: FormData): InvoicePaymentInput | undefined {
   const amount = nonnegativeMoney(String(data.get("amount") ?? "").trim() || "0", "Paid Now");
   const paymentType = String(data.get("paymentType") ?? "").trim();
+  if (amount.isZero()) return undefined;
 
-  return amount.gt(0)
-    ? {
-        amount: amount.toFixed(2),
-        paymentMethodId: String(data.get("paymentMethodId")),
-        paymentType: paymentType === "PARTIAL" ? "PARTIAL" : "PAID",
-      }
-    : undefined;
+  const paymentMethodId = String(data.get("paymentMethodId") ?? "").trim();
+  if (!isIdentifier(paymentMethodId)) {
+    throw new ApplicationError("VALIDATION_ERROR", "Please select a valid payment method.");
+  }
+  if (paymentType !== "PAID" && paymentType !== "PARTIAL") {
+    throw new ApplicationError("VALIDATION_ERROR", "Please select a valid payment type.");
+  }
+
+  return {
+    amount: amount.toFixed(2),
+    paymentMethodId,
+    paymentType,
+  };
 }
 function payload<T>(data: FormData): T {
   try {

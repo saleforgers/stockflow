@@ -229,6 +229,8 @@ describe("database foundation constraints", () => {
           skuSnapshot: fixture.product.sku,
           uomCodeSnapshot: "PCS",
           quantity: "1",
+          unitPurchasePrice: "10",
+          grossAmount: "10",
           unitCost: "10",
           lineTotal: "10",
           notes: marker,

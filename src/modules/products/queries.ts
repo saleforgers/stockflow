@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import Decimal from "decimal.js";
 import { DEFAULT_PAGE_SIZE, paginationFor } from "@/lib/pagination";
-import Decimal from "decimal.js";
 import { stockStatus } from "@/modules/inventory/queries";
 import { isIdentifier } from "@/lib/validation/identifier";
 
@@ -71,6 +70,24 @@ export function getProduct(id: string) {
     where: { id },
     include: { category: true, inventoryUnit: true, preferredSupplier: true },
   });
+}
+
+export async function getProductCurrentStock(id: string) {
+  if (!isIdentifier(id)) return null;
+  const quantities = await prisma.stockMovement.groupBy({
+    by: ["direction"],
+    where: { productId: id, location: { isDefault: true } },
+    _sum: { quantity: true },
+  });
+  return quantities
+    .reduce(
+      (stock, row) =>
+        row.direction === "IN"
+          ? stock.plus(row._sum.quantity?.toString() ?? "0")
+          : stock.minus(row._sum.quantity?.toString() ?? "0"),
+      new Decimal(0),
+    )
+    .toFixed();
 }
 
 export async function getProductHistory(id: string) {

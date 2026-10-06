@@ -3,11 +3,19 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireRole } from "@/lib/auth/session";
 import { updateProductAction } from "@/modules/products/actions";
 import { ProductForm } from "@/modules/products/product-form";
-import { getProduct, getProductFormOptions } from "@/modules/products/queries";
+import {
+  getProduct,
+  getProductCurrentStock,
+  getProductFormOptions,
+} from "@/modules/products/queries";
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   await requireRole(["ADMIN"]);
   const { id } = await params;
-  const [product, options] = await Promise.all([getProduct(id), getProductFormOptions()]);
+  const [product, options, currentStock] = await Promise.all([
+    getProduct(id),
+    getProductFormOptions(),
+    getProductCurrentStock(id),
+  ]);
   if (!product) notFound();
   const specs =
     typeof product.specifications === "object" &&
@@ -29,6 +37,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         categories={options.categories}
         units={options.units}
         suppliers={options.suppliers}
+        currentStock={currentStock ?? "0"}
         product={{
           sku: product.sku,
           name: product.name,

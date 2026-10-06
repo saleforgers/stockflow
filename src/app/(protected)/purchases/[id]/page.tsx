@@ -3,13 +3,13 @@ import Decimal from "decimal.js";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
+import { CommandForm } from "@/components/ui/command-form";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getCurrentUser } from "@/lib/auth/session";
 import { decimal } from "@/lib/decimal/decimal";
 import { formatDate, formatPkr, formatQuantity } from "@/lib/format";
 import { postPurchaseAction } from "@/modules/purchases/actions";
-import { PostPurchaseForm } from "@/modules/purchases/purchase-form";
-import { getActivePurchasePaymentMethods, getPurchase } from "@/modules/purchases/queries";
+import { getPurchase } from "@/modules/purchases/queries";
 
 export default async function PurchaseDetailPage({
   params,
@@ -22,8 +22,6 @@ export default async function PurchaseDetailPage({
   const purchase = await getPurchase(id);
   if (!purchase) notFound();
   const canWrite = user?.role === "ADMIN" || user?.role === "MANAGER";
-  const paymentMethods =
-    canWrite && purchase.status === "DRAFT" ? await getActivePurchasePaymentMethods() : [];
   const allocated = purchase.paymentAllocations.reduce(
     (sum, row) => sum.plus(row.amount.toString()),
     new Decimal(0),

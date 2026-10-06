@@ -24,6 +24,27 @@ export async function createCustomer(input: CustomerCommand, actor: AuthorizedUs
   return prisma.customer.create({ data: { ...customerData(input), isWalkIn: false } });
 }
 
+export async function createTransactionCustomer(input: CustomerCommand, actor: AuthorizedUser) {
+  assertMasterDataAdmin(actor);
+  const data = customerData(input);
+  const duplicate = await prisma.customer.findFirst({
+    where: {
+      isWalkIn: false,
+      isActive: true,
+      name: { equals: data.name, mode: "insensitive" },
+      phone: data.phone,
+    },
+    select: { id: true },
+  });
+  if (duplicate) {
+    throw new ApplicationError(
+      "CONFLICT",
+      "A customer with this name and phone already exists. Select the existing customer instead.",
+    );
+  }
+  return prisma.customer.create({ data: { ...data, isWalkIn: false } });
+}
+
 export async function updateCustomer(id: string, input: CustomerCommand, actor: AuthorizedUser) {
   assertMasterDataAdmin(actor);
   const current = await prisma.customer.findUnique({ where: { id }, select: { isWalkIn: true } });

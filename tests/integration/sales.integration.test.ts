@@ -44,7 +44,14 @@ async function fixture(lots = [{ quantity: "2", cost: "10", receivedAt: "2026-09
       notes: marker,
       lots: lots.map((l) => ({
         receivedAt: l.receivedAt,
-        lines: [{ productId: product.id, quantity: l.quantity, unitCost: l.cost }],
+        lines: [
+          {
+            productId: product.id,
+            quantity: l.quantity,
+            unitCost: l.cost,
+            lineDiscountAmount: "0",
+          },
+        ],
       })),
     },
     actor,
@@ -80,7 +87,7 @@ describe("Phase 3 sales acceptance (append-only disposable fixtures)", () => {
   afterAll(async () => {
     await db.$disconnect();
   });
-  it("posts FIFO across lots and duplicate requests create one complete set of effects", async () => {
+  it("keeps named-customer credit posting and FIFO allocation unchanged", async () => {
     const productId = await fixture([
       { quantity: "2", cost: "10.1234", receivedAt: "2026-09-01T00:00:00Z" },
       { quantity: "2", cost: "20", receivedAt: "2026-09-02T00:00:00Z" },
@@ -94,10 +101,13 @@ describe("Phase 3 sales acceptance (append-only disposable fixtures)", () => {
       orderBy: { inventoryLot: { receivedAt: "asc" } },
     });
     expect(allocations.map((a) => [a.quantity.toString(), a.unitCostSnapshot.toString()])).toEqual([
-      ["2", "10.1234"],
+      ["2", "10.125"],
       ["1", "20"],
     ]);
     expect(allocations.every((a) => a.stockMovement?.quantity.equals(a.quantity))).toBe(true);
+    expect(
+      (await db.salesInvoice.findUniqueOrThrow({ where: { id: draft.id } })).paymentStatus,
+    ).toBe("UNPAID");
     expect(await db.customerLedgerEntry.count({ where: { salesInvoiceId: draft.id } })).toBe(1);
     expect(await db.stockMovement.count({ where: { movementType: "SALE", productId } })).toBe(2);
     await expect(updateInvoiceDraft(draft.id, input(productId), actor)).rejects.toThrow(
@@ -106,6 +116,33 @@ describe("Phase 3 sales acceptance (append-only disposable fixtures)", () => {
     await expect(
       db.saleLotAllocation.update({ where: { id: allocations[0]!.id }, data: { quantity: "1" } }),
     ).rejects.toThrow();
+  });
+  it("posts a fully paid named-customer invoice with receipt and ledger entries", async () => {
+    const productId = await fixture();
+    const draft = await invoice(productId);
+
+    await postInvoice(draft.id, actor, {
+      paymentType: "PAID",
+      paymentMethodId: cash,
+      amount: "100",
+    });
+
+    const posted = await db.salesInvoice.findUniqueOrThrow({
+      where: { id: draft.id },
+      include: {
+        paymentAllocations: { include: { payment: true } },
+        ledgerEntry: true,
+        lines: { include: { lotAllocations: { include: { stockMovement: true } } } },
+      },
+    });
+    expect(posted.status).toBe("POSTED");
+    expect(posted.paymentStatus).toBe("PAID");
+    expect(posted.amountReceivedCached.toFixed(2)).toBe("100.00");
+    expect(posted.ledgerEntry?.entryType).toBe("SALE");
+    expect(posted.paymentAllocations).toHaveLength(1);
+    expect(posted.paymentAllocations[0]?.payment.status).toBe("POSTED");
+    expect(posted.lines[0]?.lotAllocations).toHaveLength(1);
+    expect(posted.lines[0]?.lotAllocations[0]?.stockMovement?.movementType).toBe("SALE");
   });
   it("permits exactly one of two concurrent final-stock sales", async () => {
     const productId = await fixture([
@@ -196,6 +233,25 @@ describe("Phase 3 sales acceptance (append-only disposable fixtures)", () => {
       ),
     ).rejects.toThrow("outstanding");
   });
+  it("posts a named-customer invoice with a partial payment", async () => {
+    const draft = await invoice(await fixture());
+
+    await postInvoice(draft.id, actor, {
+      paymentType: "PARTIAL",
+      paymentMethodId: cash,
+      amount: "40",
+    });
+
+    const posted = await db.salesInvoice.findUniqueOrThrow({
+      where: { id: draft.id },
+      include: { paymentAllocations: true },
+    });
+    expect(posted.paymentStatus).toBe("PARTIALLY_PAID");
+    expect(posted.amountReceivedCached.toFixed(2)).toBe("40.00");
+    expect(posted.paymentAllocations.map((allocation) => allocation.amount.toFixed(2))).toEqual([
+      "40.00",
+    ]);
+  });
   it("restores original allocation costs and discounted credits, rejects excess returns", async () => {
     const productId = await fixture([
       { quantity: "2", cost: "10.1234", receivedAt: "2026-09-01T00:00:00Z" },
@@ -223,7 +279,7 @@ describe("Phase 3 sales acceptance (append-only disposable fixtures)", () => {
       where: { saleReturnLine: { saleReturnId: returned.id } },
       include: { inventoryLot: true, stockMovement: true },
     });
-    expect(allocation.unitCostSnapshot.toString()).toBe("10.1234");
+    expect(allocation.unitCostSnapshot.toString()).toBe("10.125");
     expect(allocation.inventoryLot.availableQuantity.toString()).toBe("2");
     expect(allocation.stockMovement?.direction).toBe("IN");
     await expect(postSaleReturn({ ...command, requestKey: randomUUID() }, actor)).rejects.toThrow(
@@ -243,14 +299,20 @@ describe("Phase 3 sales acceptance (append-only disposable fixtures)", () => {
     const walkIn = await db.customer.findFirstOrThrow({ where: { isWalkIn: true } });
     const productId = await fixture();
     const draft = await createInvoiceDraft(input(productId, "1", walkIn.id), actor);
-    await expect(postInvoice(draft.id, actor)).rejects.toThrow("fully paid");
+    await expect(postInvoice(draft.id, actor)).rejects.toThrow(
+      "Walk-in sales must be fully paid. Select or create a named customer for credit/partial sales.",
+    );
+    expect((await db.salesInvoice.findUniqueOrThrow({ where: { id: draft.id } })).status).toBe(
+      "DRAFT",
+    );
+    expect(await db.stockMovement.count({ where: { productId, movementType: "SALE" } })).toBe(0);
     await expect(
       postInvoice(draft.id, actor, {
         paymentType: "PAID",
         paymentMethodId: randomUUID(),
         amount: "100",
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow("Please select a valid payment method.");
     expect(await db.stockMovement.count({ where: { productId, movementType: "SALE" } })).toBe(0);
     await postInvoice(draft.id, actor, {
       paymentType: "PAID",

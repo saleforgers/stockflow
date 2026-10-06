@@ -19,6 +19,7 @@ function inputFrom(data: FormData) {
     preferredSupplierId: String(data.get("preferredSupplierId") ?? ""),
     defaultPurchasePrice: String(data.get("defaultPurchasePrice") ?? ""),
     defaultSellingPrice: String(data.get("defaultSellingPrice") ?? ""),
+    openingStockQuantity: String(data.get("openingStockQuantity") ?? "0"),
     lowStockThreshold: String(data.get("lowStockThreshold") ?? "0"),
     specifications: keys.map((key, index) => ({ key, value: values[index] ?? "" })),
   };

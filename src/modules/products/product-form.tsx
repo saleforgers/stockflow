@@ -27,17 +27,20 @@ export function ProductForm({
   categories,
   units,
   suppliers,
+  currentStock,
 }: {
   action: (state: ActionResult, data: FormData) => Promise<ActionResult>;
   product?: ProductValue;
   categories: Option[];
   units: Array<Option & { code: string; decimalScale: number }>;
   suppliers: Option[];
+  currentStock?: string;
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
   const [specifications, setSpecifications] = useState(
     product?.specifications.length ? product.specifications : [{ key: "", value: "" }],
   );
+  const inventoryUnit = units.find((unit) => unit.id === product?.inventoryUnitId);
   return (
     <form action={formAction} className="card max-w-4xl space-y-6 p-6">
       <FormMessage result={state} />
@@ -141,6 +144,22 @@ export function ProductForm({
             name="defaultPurchasePrice"
           />
         </FormField>
+        {!product ? (
+          <FormField
+            htmlFor="openingStockQuantity"
+            label="Opening Stock Quantity"
+            hint="Optional. Uses the Default Purchase Price as opening unit cost; a positive price is required when opening stock is greater than zero."
+          >
+            <input
+              className="input"
+              defaultValue="0"
+              id="openingStockQuantity"
+              inputMode="decimal"
+              min="0"
+              name="openingStockQuantity"
+            />
+          </FormField>
+        ) : null}
         <FormField
           htmlFor="defaultSellingPrice"
           label="Default selling price (PKR)"
@@ -154,6 +173,25 @@ export function ProductForm({
             name="defaultSellingPrice"
           />
         </FormField>
+        {product ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Current Stock
+            </p>
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+              <strong className="text-lg text-slate-900">
+                {currentStock ?? "0"} {inventoryUnit?.code ?? ""}
+              </strong>
+              <Link className="btn-secondary" href="/inventory/adjust">
+                Adjust Stock
+              </Link>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Existing stock is changed through auditable inventory adjustments, purchases, and
+              returns.
+            </p>
+          </div>
+        ) : null}
       </div>
       <FormField htmlFor="description" label="Description">
         <textarea

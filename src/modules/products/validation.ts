@@ -27,6 +27,7 @@ export const productCommandSchema = z.object({
   preferredSupplierId: optionalId,
   defaultPurchasePrice: z.string().trim().nullable().optional(),
   defaultSellingPrice: z.string().trim().nullable().optional(),
+  openingStockQuantity: z.string().trim().optional(),
   lowStockThreshold: z.string().trim().min(1),
   specifications: z.array(
     z.object({ key: z.string().trim().max(50), value: z.string().trim().max(300) }),

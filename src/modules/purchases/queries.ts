@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import { DEFAULT_PAGE_SIZE, paginationFor } from "@/lib/pagination";
 import { decimal } from "@/lib/decimal/decimal";
 import { isIdentifier } from "@/lib/validation/identifier";
+import { recentPartyIds } from "@/lib/parties/recent";
+import { isDemoProduct } from "@/modules/maintenance/fixture-policy";
 
 export async function listPurchases(input: {
   search?: string;
@@ -95,11 +97,17 @@ export function getPurchase(id: string) {
 }
 
 export async function getPurchaseFormOptions() {
-  const [suppliers, products, supplierBalances, stock] = await Promise.all([
+  const [suppliers, recentPurchases, products, supplierBalances, stock] = await Promise.all([
     prisma.supplier.findMany({
       where: { isActive: true },
       select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.purchase.findMany({
+      where: { status: "POSTED", supplier: { isActive: true } },
+      select: { supplierId: true },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 100,
     }),
     prisma.product.findMany({
       where: { isActive: true, inventoryUnit: { isActive: true } },
@@ -122,6 +130,12 @@ export async function getPurchaseFormOptions() {
       _sum: { quantity: true },
     }),
   ]);
+  const recentSupplierIds = new Set(
+    recentPartyIds(
+      recentPurchases.map((purchase) => ({ partyId: purchase.supplierId })),
+      suppliers,
+    ),
+  );
   const balanceBySupplier = new Map<string, Decimal>();
   for (const row of supplierBalances) {
     const current = balanceBySupplier.get(row.supplierId) ?? new Decimal(0);
@@ -143,14 +157,17 @@ export async function getPurchaseFormOptions() {
   return {
     suppliers: suppliers.map((supplier) => ({
       ...supplier,
+      recent: recentSupplierIds.has(supplier.id),
       accountBalance: (balanceBySupplier.get(supplier.id) ?? new Decimal(0)).toFixed(2),
     })),
-    products: products.map((product) => ({
-      ...product,
-      defaultPurchasePrice: product.defaultPurchasePrice?.toFixed(4) ?? "",
-      defaultSellingPrice: product.defaultSellingPrice?.toFixed(4) ?? "",
-      currentStock: (stockByProduct.get(product.id) ?? new Decimal(0)).toFixed(),
-    })),
+    products: products
+      .filter((product) => !isDemoProduct(product.name, product.sku))
+      .map((product) => ({
+        ...product,
+        defaultPurchasePrice: product.defaultPurchasePrice?.toFixed(4) ?? "",
+        defaultSellingPrice: product.defaultSellingPrice?.toFixed(4) ?? "",
+        currentStock: (stockByProduct.get(product.id) ?? new Decimal(0)).toFixed(),
+      })),
   };
 }
 

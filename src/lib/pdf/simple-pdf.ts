@@ -64,7 +64,7 @@ export function simpleTextPdf(title: string, lines: string[]) {
 
 export function pdfResponse(filename: string, data: Buffer) {
   const safeFilename = ascii(filename).replace(/[^A-Za-z0-9._-]+/g, "-");
-  return new Response(data, {
+  return new Response(new Uint8Array(data), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="${safeFilename}"`,
