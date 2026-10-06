@@ -7,7 +7,7 @@ import { saveInvoiceAction } from "@/modules/sales/actions";
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   await requireRole(["ADMIN", "MANAGER"]);
   const { id } = await params;
-  const [invoice, options] = await Promise.all([getInvoice(id), getSalesOptions()]);
+  const [invoice, options] = await Promise.all([getInvoice(id), getSalesOptions(false)]);
   if (!invoice) notFound();
   if (invoice.status !== "DRAFT") redirect(`/sales/${id}`);
   return (
@@ -17,6 +17,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         action={saveInvoiceAction.bind(null, id)}
         customers={options.customers}
         products={options.products}
+        methods={options.paymentMethods}
         date={invoice.invoiceDate.toISOString().slice(0, 10)}
         initial={{
           customerId: invoice.customerId,

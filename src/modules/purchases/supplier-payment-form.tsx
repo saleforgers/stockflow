@@ -150,7 +150,7 @@ export function SupplierPaymentForm({
       </section>
       <section className="card overflow-hidden">
         <div className="border-b border-slate-200 p-5">
-          <h2 className="font-semibold">Purchase allocations</h2>
+          <h2 className="font-semibold">Apply Payment to Purchases</h2>
           <p className="mt-1 text-sm text-slate-500">
             Leave any amount unallocated to record it on account.
           </p>
@@ -191,7 +191,7 @@ export function SupplierPaymentForm({
         ) : (
           <div className="p-6 text-sm text-slate-500">
             {supplierId
-              ? "No unpaid posted purchases. The payment can still be recorded fully on account."
+              ? "No unpaid finalized purchases. The payment can still be recorded fully on account."
               : "Select a supplier to view eligible purchases."}
           </div>
         )}
@@ -213,7 +213,7 @@ export function SupplierPaymentForm({
         </div>
       </section>
       <div className="flex gap-3">
-        <SubmitButton>Post payment</SubmitButton>
+        <SubmitButton>Record Payment</SubmitButton>
         <Link className="btn-secondary" href="/purchases">
           Cancel
         </Link>

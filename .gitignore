@@ -28,4 +28,7 @@
 .DS_Store
 Thumbs.db
 *.tsbuildinfo
+/tmp
+/output
+/public/pdfjs
 next-env.d.ts

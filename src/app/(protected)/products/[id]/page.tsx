@@ -1,4 +1,9 @@
 import Link from "next/link";
+import { listStock, listLots, listMovements } from "@/modules/inventory/queries";
+import { LotsTable, MovementsTable } from "@/modules/inventory/views";
+import { SummaryCards } from "@/components/ui/summary-cards";
+import { formatPkr, formatQuantity } from "@/lib/format";
+import { prisma } from "@/lib/db/prisma";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -18,6 +23,24 @@ export default async function ProductDetailPage({
     searchParams,
   ]);
   if (!product) notFound();
+  const [stock, lots, movements, purchases, sales] = await Promise.all([
+    listStock({ page: 1, productId: id }),
+    listLots({ page: 1, productId: id }),
+    listMovements({ page: 1, productId: id }),
+    prisma.purchaseLine.findMany({
+      where: { productId: id, purchase: { status: "POSTED" } },
+      include: { purchase: true },
+      orderBy: { purchase: { purchaseDate: "desc" } },
+      take: 10,
+    }),
+    prisma.salesInvoiceLine.findMany({
+      where: { productId: id, salesInvoice: { status: "POSTED" } },
+      include: { salesInvoice: true },
+      orderBy: { salesInvoice: { invoiceDate: "desc" } },
+      take: 10,
+    }),
+  ]);
+  const current = stock.items[0];
   const specs =
     typeof product.specifications === "object" &&
     product.specifications &&
@@ -37,7 +60,34 @@ export default async function ProductDetailPage({
           Product saved successfully.
         </p>
       ) : null}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <SummaryCards
+        items={[
+          {
+            label: "On Hand",
+            value: formatQuantity(current?.onHand ?? "0") + " " + product.inventoryUnit.code,
+            tone: "stock",
+          },
+          {
+            label: "Selling Price",
+            value: product.defaultSellingPrice ? formatPkr(product.defaultSellingPrice) : "—",
+            tone: "income",
+          },
+          { label: "Inventory Value", value: formatPkr(current?.value ?? "0"), tone: "stock" },
+          {
+            label: "Low Stock Threshold",
+            value: formatQuantity(product.lowStockThreshold),
+            tone: "warning",
+          },
+        ]}
+      />
+      <nav className="flex flex-wrap gap-3">
+        {["Overview", "Lots", "Stock Movements", "Purchases", "Sales"].map((tab) => (
+          <a className="btn-secondary" key={tab} href={"#" + tab.replaceAll(" ", "-")}>
+            {tab}
+          </a>
+        ))}
+      </nav>
+      <div id="Overview" className="grid gap-6 lg:grid-cols-2">
         <section className="card p-6">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="font-semibold text-slate-900">Product details</h2>
@@ -87,6 +137,40 @@ export default async function ProductDetailPage({
           )}
         </section>
       </div>
+      <section id="Lots" className="space-y-3">
+        <h2 className="text-lg font-semibold">Lots</h2>
+        <LotsTable items={lots.items} />
+        <Link href={"/inventory/lots?productId=" + id}>View all {lots.total} lots</Link>
+      </section>
+      <section id="Stock-Movements" className="space-y-3">
+        <h2 className="text-lg font-semibold">Stock Movements</h2>
+        <MovementsTable items={movements.items} />
+        <Link href={"/inventory/movements?productId=" + id}>
+          View all {movements.total} movements
+        </Link>
+      </section>
+      <section id="Purchases" className="card space-y-3 p-5">
+        <h2 className="font-semibold">Recent Purchases</h2>
+        {purchases.map((l) => (
+          <p key={l.id}>
+            <Link href={"/purchases/" + l.purchaseId}>{l.purchase.purchaseNumber}</Link> ·{" "}
+            {l.purchase.supplierNameSnapshot} · {formatQuantity(l.quantity)}{" "}
+            {product.inventoryUnit.code} · {formatPkr(l.unitCost)}
+          </p>
+        ))}
+        {!purchases.length && <p>No finalized purchases.</p>}
+      </section>
+      <section id="Sales" className="card space-y-3 p-5">
+        <h2 className="font-semibold">Recent Sales</h2>
+        {sales.map((l) => (
+          <p key={l.id}>
+            <Link href={"/sales/" + l.salesInvoiceId}>{l.salesInvoice.invoiceNumber}</Link> ·{" "}
+            {l.salesInvoice.customerNameSnapshot} · {formatQuantity(l.quantity)}{" "}
+            {product.inventoryUnit.code} · {formatPkr(l.netAmount)}
+          </p>
+        ))}
+        {!sales.length && <p>No finalized sales.</p>}
+      </section>
       <Link className="btn-secondary" href="/products">
         Back to products
       </Link>

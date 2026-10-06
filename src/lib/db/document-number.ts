@@ -7,7 +7,9 @@ export type DocumentNumberKind =
   | "purchaseReturn"
   | "salesInvoice"
   | "saleReturn"
-  | "expense";
+  | "expense"
+  | "stockAdjustment"
+  | "estimate";
 
 const prefixes: Record<DocumentNumberKind, string> = {
   purchase: "PUR",
@@ -17,6 +19,8 @@ const prefixes: Record<DocumentNumberKind, string> = {
   salesInvoice: "INV",
   saleReturn: "SRT",
   expense: "EXP",
+  stockAdjustment: "ADJ",
+  estimate: "EST",
 };
 
 export async function nextDocumentNumber(
@@ -25,6 +29,13 @@ export async function nextDocumentNumber(
 ): Promise<string> {
   let rows: Array<{ value: bigint }>;
   switch (kind) {
+    case "estimate":
+      rows = await transaction.$queryRaw`SELECT nextval('"Estimate_internal_number_seq"') AS value`;
+      break;
+    case "stockAdjustment":
+      rows =
+        await transaction.$queryRaw`SELECT nextval('"StockAdjustment_internal_number_seq"') AS value`;
+      break;
     case "salesInvoice":
       rows =
         await transaction.$queryRaw`SELECT nextval('"SalesInvoice_internal_number_seq"') AS value`;

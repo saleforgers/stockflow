@@ -64,25 +64,42 @@ async function prepare(tx: BusinessTransaction, input: InvoiceDraftCommand) {
 async function lockInvoice(tx: BusinessTransaction, id: string) {
   await tx.$queryRaw`SELECT "id" FROM "SalesInvoice" WHERE "id" = ${id}::uuid FOR UPDATE`;
 }
+export async function createInvoiceDraftInTransaction(
+  tx: BusinessTransaction,
+  input: InvoiceDraftCommand,
+  actor: AuthorizedUser,
+) {
+  assertOperationalWriter(actor);
+  if (input.requestKey) {
+    const key = parseIdentifier(input.requestKey, "Invoice request");
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key},0))::text`;
+    const existing = await tx.salesInvoice.findUnique({ where: { requestKey: key } });
+    if (existing) {
+      if (existing.customerId !== input.customerId || existing.createdById !== actor.id)
+        throw new ApplicationError("CONFLICT", "Invoice request already used");
+      return existing;
+    }
+  }
+  const { lines, ...data } = await prepare(tx, input);
+  const location = await tx.inventoryLocation.findFirst({
+    where: { isActive: true, isDefault: true },
+  });
+  if (!location)
+    throw new ApplicationError("INVARIANT_VIOLATION", "Active default location missing");
+  return tx.salesInvoice.create({
+    data: {
+      ...data,
+      requestKey: input.requestKey,
+      locationId: location.id,
+      invoiceNumber: await nextDocumentNumber(tx, "salesInvoice"),
+      createdById: actor.id,
+      lines: { create: lines },
+    },
+  });
+}
 export async function createInvoiceDraft(input: InvoiceDraftCommand, actor: AuthorizedUser) {
   assertOperationalWriter(actor);
-  return salesTransaction(async (tx) => {
-    const { lines, ...data } = await prepare(tx, input);
-    const location = await tx.inventoryLocation.findFirst({
-      where: { isActive: true, isDefault: true },
-    });
-    if (!location)
-      throw new ApplicationError("INVARIANT_VIOLATION", "Active default location missing");
-    return tx.salesInvoice.create({
-      data: {
-        ...data,
-        locationId: location.id,
-        invoiceNumber: await nextDocumentNumber(tx, "salesInvoice"),
-        createdById: actor.id,
-        lines: { create: lines },
-      },
-    });
-  });
+  return salesTransaction((tx) => createInvoiceDraftInTransaction(tx, input, actor));
 }
 export async function updateInvoiceDraft(
   id: string,

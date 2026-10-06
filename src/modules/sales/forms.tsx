@@ -6,6 +6,7 @@ import type { ActionResult } from "@/lib/actions/action-result";
 import { INITIAL_ACTION_RESULT } from "@/lib/actions/action-result";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { invoicePreview } from "./preview";
 import type { InvoiceDraftCommand } from "./validation";
 
 type Action = (state: ActionResult, data: FormData) => Promise<ActionResult>;
@@ -102,21 +103,31 @@ export function InvoiceForm({
   products,
   date,
   initial,
+  methods = [],
+  requestKey,
+  estimate = false,
+  validUntil = "",
 }: {
   action: Action;
   customers: (Option & { phone: string | null; accountBalance: string; isWalkIn: boolean })[];
   products: (Option & {
     sku: string;
     defaultSellingPrice: string;
-    currentStock: string;
+    available: string;
     inventoryUnit: { code: string; decimalScale: number };
   })[];
   date: string;
   initial?: InvoiceDraftCommand;
+  methods?: Option[];
+  requestKey?: string;
+  estimate?: boolean;
+  validUntil?: string;
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const [paid, setPaid] = useState("0");
   const [command, setCommand] = useState<InvoiceDraftCommand>(
     initial ?? {
+      requestKey,
       customerId: "",
       invoiceDate: date,
       invoiceDiscountAmount: "0",
@@ -124,6 +135,7 @@ export function InvoiceForm({
       lines: [{ productId: "", quantity: "1", unitPrice: "", lineDiscountAmount: "0" }],
     },
   );
+  const preview = invoicePreview(command, products, paid);
   const changeLine = (index: number, key: string, value: string) =>
     setCommand((c) => ({
       ...c,
@@ -164,36 +176,13 @@ export function InvoiceForm({
           onChange={(v) => setCommand((c) => ({ ...c, customerId: v }))}
         />
         <Field
-          label="Invoice date"
+          label={estimate ? "Estimate Date" : "Invoice Date"}
           name="date"
           type="date"
           value={command.invoiceDate}
           onChange={(v) => setCommand((c) => ({ ...c, invoiceDate: v }))}
         />
       </div>
-      {customer ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <span className="text-slate-500">Phone</span>
-              <div className="font-medium">{customer.phone || "—"}</div>
-            </div>
-            <div>
-              <span className="text-slate-500">Previous account balance</span>
-              <div className="font-medium">PKR {customer.accountBalance}</div>
-            </div>
-            <div className="self-end">
-              <Link
-                className="btn-secondary"
-                href={`/customers/${customer.id}/account`}
-                target="_blank"
-              >
-                View customer ledger
-              </Link>
-            </div>
-          </div>
-        </div>
-      ) : null}
       {command.lines.map((line, i) => (
         <fieldset key={i} className="space-y-3 rounded-lg border p-4">
           <legend>Line {i + 1}</legend>
@@ -237,37 +226,6 @@ export function InvoiceForm({
               onChange={(v) => changeLine(i, "lineDiscountAmount", v)}
             />
           </div>
-          {line.productId
-            ? (() => {
-                const selected = products.find((product) => product.id === line.productId);
-                if (!selected) return null;
-                let shortage = false;
-                try {
-                  shortage = new Decimal(line.quantity || 0).greaterThan(selected.currentStock);
-                } catch {
-                  /* server validates */
-                }
-                return (
-                  <div className="flex flex-wrap items-center gap-3 text-sm">
-                    <span className={shortage ? "font-medium text-red-700" : "text-slate-600"}>
-                      Available: {selected.currentStock} {selected.inventoryUnit.code}
-                      {shortage ? " — insufficient stock" : ""}
-                    </span>
-                    <span>
-                      Line amount: PKR{" "}
-                      {safeLineAmount(line.quantity, line.unitPrice, line.lineDiscountAmount)}
-                    </span>
-                    <Link
-                      className="text-blue-700 underline"
-                      href={`/products/${selected.id}/history`}
-                      target="_blank"
-                    >
-                      View item history
-                    </Link>
-                  </div>
-                );
-              })()
-            : null}
           <Field
             label="Line notes"
             name={`notes-${i}`}
@@ -300,46 +258,87 @@ export function InvoiceForm({
           }))
         }
       >
-        Add product line
+        + Add Product
       </button>
-      <Field
-        label="Invoice discount (PKR)"
-        name="invoiceDiscount"
-        value={command.invoiceDiscountAmount}
-        onChange={(v) => setCommand((c) => ({ ...c, invoiceDiscountAmount: v }))}
-      />
-      <Field
-        label="Notes"
-        name="notes"
-        value={command.notes ?? ""}
-        onChange={(v) => setCommand((c) => ({ ...c, notes: v }))}
-        required={false}
-      />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="space-y-4">
+          <Field
+            label="Invoice Discount (PKR)"
+            name="invoiceDiscount"
+            value={command.invoiceDiscountAmount}
+            onChange={(v) => setCommand((c) => ({ ...c, invoiceDiscountAmount: v }))}
+          />
+          <Field
+            label="Notes"
+            name="notes"
+            value={command.notes ?? ""}
+            onChange={(v) => setCommand((c) => ({ ...c, notes: v }))}
+            required={false}
+          />
+          {!estimate && (
+            <>
+              <Select
+                label="Payment Method (leave empty for Credit)"
+                name="paymentMethodId"
+                options={methods}
+                required={false}
+              />
+              <Field label="Paid Now (PKR)" name="amount" value={paid} onChange={setPaid} />
+            </>
+          )}
+          {estimate && (
+            <Field
+              label="Valid Until (optional)"
+              name="validUntil"
+              type="date"
+              value={validUntil}
+              required={false}
+            />
+          )}
+        </div>
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-6 space-y-4 tabular-nums">
+          <p>
+            Subtotal <strong className="float-right">PKR {preview.subtotal}</strong>
+          </p>
+          <p>
+            Invoice Discount{" "}
+            <strong className="float-right">PKR {command.invoiceDiscountAmount || "0"}</strong>
+          </p>
+          <p className="border-t border-indigo-200 pt-4 text-xl font-semibold text-indigo-900">
+            Grand Total <strong className="float-right">PKR {preview.total}</strong>
+          </p>
+          {!estimate && (
+            <>
+              <p className="text-emerald-700">
+                Paid Now <strong className="float-right">PKR {paid || "0"}</strong>
+              </p>
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 font-semibold text-amber-900">
+                Balance Due <strong className="float-right">PKR {preview.balance}</strong>
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+      {preview.error && <p className="text-sm text-red-700">{preview.error}</p>}
+      <div className="flex gap-3">
+        <SubmitButton name="intent" value="draft">
+          Save Draft
+        </SubmitButton>
+        {!estimate && (
+          <SubmitButton
+            name="intent"
+            value="finalize"
+            disabled={!!preview.error || preview.shortages.some(Boolean)}
+          >
+            Finalize Invoice
+          </SubmitButton>
+        )}
+      </div>
       <p className="text-sm text-slate-500">
-        Save to review validated totals before posting. Discounts are fixed PKR amounts.
+        {estimate
+          ? "Estimates do not reserve or deduct stock."
+          : "Drafts do not deduct stock. Finalizing updates stock and the customer account. Availability is checked again when you finalize."}
       </p>
-      <section className="ml-auto max-w-md space-y-2 rounded-lg border border-slate-200 p-4 text-sm">
-        <div className="flex justify-between">
-          <span>Subtotal</span>
-          <strong>PKR {subtotal.toFixed(2)}</strong>
-        </div>
-        <div className="flex justify-between">
-          <span>Invoice discount</span>
-          <strong>PKR {safeMoney(command.invoiceDiscountAmount)}</strong>
-        </div>
-        <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
-          <span>Current invoice total</span>
-          <strong>PKR {invoiceTotal.toFixed(2)}</strong>
-        </div>
-        {customer ? (
-          <div className="flex justify-between">
-            <span>Total customer outstanding after invoice</span>
-            <strong>
-              PKR {new Decimal(customer.accountBalance).plus(invoiceTotal).toFixed(2)}
-            </strong>
-          </div>
-        ) : null}
-      </section>
       <SubmitButton>Save draft</SubmitButton>
     </form>
   );
@@ -365,56 +364,18 @@ export function PostInvoiceForm({
       action={formAction}
       className="card space-y-4 p-6"
       onSubmit={(e) => {
-        if (!window.confirm("Post invoice and consume stock?")) e.preventDefault();
+        if (!window.confirm("Finalize this invoice and update stock and the customer balance?"))
+          e.preventDefault();
       }}
     >
       <FormMessage result={state} />
-      <Select
-        label="Sale type / payment status"
-        name="paymentType"
-        options={
-          walkIn
-            ? [{ id: "PAID", name: "Cash / Paid" }]
-            : [
-                { id: "PAID", name: "Cash / Paid" },
-                { id: "CREDIT", name: "Credit" },
-                { id: "PARTIAL", name: "Partial payment" },
-              ]
-        }
-        value={paymentType}
-        onChange={(value) => {
-          const next = value as "PAID" | "CREDIT" | "PARTIAL";
-          setPaymentType(next);
-          setAmount(
-            next === "PAID" ? total : next === "CREDIT" ? "0" : amount === "0" ? "" : amount,
-          );
-        }}
-      />
-      {paymentType !== "CREDIT" ? (
-        <>
-          <Select label="Receipt method" name="paymentMethodId" options={methods} />
-          <Field label="Paid now (PKR)" name="amount" value={amount} onChange={setAmount} />
-        </>
-      ) : null}
-      <div className="rounded-lg bg-slate-50 p-3 text-sm">
-        <div className="flex justify-between">
-          <span>Invoice total</span>
-          <strong>PKR {total}</strong>
-        </div>
-        <div className="flex justify-between">
-          <span>Paid now</span>
-          <strong>PKR {paymentType === "CREDIT" ? "0.00" : safeMoney(amount)}</strong>
-        </div>
-        <div className="flex justify-between">
-          <span>Invoice balance</span>
-          <strong>
-            PKR{" "}
-            {paymentType === "CREDIT"
-              ? total
-              : Decimal.max(new Decimal(total).minus(amount || 0), 0).toFixed(2)}
-          </strong>
-        </div>
-      </div>
+      <p>
+        {walkIn
+          ? "Full payment is required for this walk-in invoice."
+          : "Optional receipt at posting. Leave amount empty for a credit invoice."}
+      </p>
+      <Select label="Receipt method" name="paymentMethodId" options={methods} required={walkIn} />
+      <Field label="Receipt amount (PKR)" name="amount" required={walkIn} />
       <SubmitButton>Post invoice</SubmitButton>
     </form>
   );
@@ -503,7 +464,7 @@ export function ReturnForm({
 }: {
   action: Action;
   invoiceId: string;
-  lines: { id: string; name: string; remaining: string }[];
+  lines: { id: string; name: string; original: string; returned: string; remaining: string }[];
   date: string;
   requestKey: string;
 }) {
@@ -530,21 +491,54 @@ export function ReturnForm({
     >
       <FormMessage result={state} />
       <Field label="Return date" name="date" type="date" value={date} />
-      <Field label="Reason" name="reason" />
-      {lines.map((l) => (
-        <Field
-          key={l.id}
-          label={`${l.name} — returnable ${l.remaining}`}
-          name={l.id}
-          required={false}
-        />
-      ))}
+      <Select
+        label="Reason"
+        name="reason"
+        options={["Damaged", "Wrong Item", "Customer Return", "Other"].map((name) => ({
+          id: name,
+          name,
+        }))}
+      />
+      <div className="overflow-x-auto">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Original Qty</th>
+              <th>Already Returned</th>
+              <th>Returnable</th>
+              <th>Return Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((l) => (
+              <tr key={l.id}>
+                <td>{l.name}</td>
+                <td>{l.original}</td>
+                <td>{l.returned}</td>
+                <td>{l.remaining}</td>
+                <td>
+                  <input
+                    className="input"
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    max={l.remaining}
+                    name={l.id}
+                    aria-label={`Return quantity for ${l.name}`}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <Field label="Notes" name="notes" required={false} />
       <p className="text-sm text-slate-500">
-        Returns restore original cost layers and credit the customer. Cash refunds are separate
-        transactions.
+        Returned products go back into inventory and credit the customer account. Inspect damaged
+        goods before returning them to stock. Cash refunds are separate transactions.
       </p>
-      <SubmitButton>Post sale return</SubmitButton>
+      <SubmitButton>Confirm Return</SubmitButton>
     </form>
   );
 }
@@ -562,13 +556,13 @@ export function AdvanceForm({
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
   return (
     <form action={formAction} className="card space-y-4 p-6">
-      <h2 className="font-semibold">Allocate an existing advance</h2>
+      <h2 className="font-semibold">Use an existing advance</h2>
       <input type="hidden" name="requestKey" value={requestKey} />
       <FormMessage result={state} />
       <Select label="Receipt" name="paymentId" options={payments} />
       <Select label="Invoice" name="salesInvoiceId" options={invoices} />
-      <Field label="Allocation amount (PKR)" name="amount" />
-      <SubmitButton>Allocate advance</SubmitButton>
+      <Field label="Amount to apply (PKR)" name="amount" />
+      <SubmitButton>Apply advance</SubmitButton>
     </form>
   );
 }

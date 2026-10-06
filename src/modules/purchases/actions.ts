@@ -45,6 +45,9 @@ export async function createPurchaseDraftAction(
     return toActionFailure(error);
   }
   revalidatePath("/purchases");
+  revalidatePath("/");
+  revalidatePath("/inventory", "layout");
+  revalidatePath("/reports", "layout");
   redirect(`/purchases/${id}?success=created`);
 }
 
@@ -59,6 +62,9 @@ export async function updatePurchaseDraftAction(
     return toActionFailure(error);
   }
   revalidatePath("/purchases");
+  revalidatePath("/");
+  revalidatePath("/inventory", "layout");
+  revalidatePath("/reports", "layout");
   revalidatePath(`/purchases/${id}`);
   redirect(`/purchases/${id}?success=updated`);
 }
@@ -84,6 +90,9 @@ export async function postPurchaseAction(
     return toActionFailure(error);
   }
   revalidatePath("/purchases");
+  revalidatePath("/");
+  revalidatePath("/inventory", "layout");
+  revalidatePath("/reports", "layout");
   revalidatePath(`/purchases/${id}`);
   redirect(`/purchases/${id}?success=posted`);
 }
@@ -101,6 +110,9 @@ export async function recordSupplierPaymentAction(
     return toActionFailure(error);
   }
   revalidatePath("/purchases");
+  revalidatePath("/");
+  revalidatePath("/inventory", "layout");
+  revalidatePath("/reports", "layout");
   revalidatePath(`/suppliers/${supplierId}/account`);
   redirect(`/suppliers/${supplierId}/account?success=payment`);
 }
@@ -118,6 +130,9 @@ export async function postPurchaseReturnAction(
     return toActionFailure(error);
   }
   revalidatePath("/purchases");
+  revalidatePath("/");
+  revalidatePath("/inventory", "layout");
+  revalidatePath("/reports", "layout");
   revalidatePath(`/purchases/${purchaseId}`);
   redirect(`/purchases/${purchaseId}?success=return`);
 }

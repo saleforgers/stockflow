@@ -32,14 +32,30 @@ export function getInvoice(id: string) {
       lines: {
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         include: {
-          lotAllocations: { include: { inventoryLot: { include: { purchaseLot: true } } } },
+          lotAllocations: {
+            include: {
+              inventoryLot: {
+                include: {
+                  purchaseLot: true,
+                  adjustmentLines: {
+                    where: { direction: "IN" },
+                    include: { stockAdjustment: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
           returnLines: {
             where: { saleReturn: { status: "POSTED" } },
             include: { allocations: true },
           },
         },
       },
-      paymentAllocations: { where: { payment: { status: "POSTED" } }, include: { payment: true } },
+      paymentAllocations: {
+        where: { payment: { status: "POSTED" } },
+        include: { payment: { include: { paymentMethod: true } } },
+      },
       returns: {
         where: { status: "POSTED" },
         include: { lines: { include: { allocations: true } } },
@@ -47,72 +63,72 @@ export function getInvoice(id: string) {
     },
   });
 }
-export async function getSalesOptions() {
-  const [customers, products, paymentMethods, invoices, customerBalances, stock] =
-    await Promise.all([
-      prisma.customer.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true, phone: true, isWalkIn: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.product.findMany({
-        where: { isActive: true, inventoryUnit: { isActive: true } },
-        select: {
-          id: true,
-          name: true,
-          sku: true,
-          defaultSellingPrice: true,
-          inventoryUnit: { select: { code: true, decimalScale: true } },
-        },
-        orderBy: { name: "asc" },
-      }),
-      prisma.paymentMethod.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.salesInvoice.findMany({
-        where: { status: "POSTED" },
-        select: {
-          id: true,
-          customerId: true,
-          invoiceNumber: true,
-          totalAmount: true,
-          paymentAllocations: {
-            where: { payment: { status: "POSTED" } },
-            select: { amount: true },
+export async function getSalesOptions(withInvoices = true) {
+  const [customers, products, paymentMethods, invoices, stock] = await Promise.all([
+    prisma.customer.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, isWalkIn: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.product.findMany({
+      where: { isActive: true, inventoryUnit: { isActive: true } },
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        defaultSellingPrice: true,
+        inventoryUnit: { select: { code: true, decimalScale: true } },
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.paymentMethod.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    withInvoices
+      ? prisma.salesInvoice.findMany({
+          where: { status: "POSTED" },
+          select: {
+            id: true,
+            customerId: true,
+            invoiceNumber: true,
+            totalAmount: true,
+            paymentAllocations: {
+              where: { payment: { status: "POSTED" } },
+              select: { amount: true },
+            },
+            returns: { where: { status: "POSTED" }, select: { totalAmount: true } },
           },
-          returns: { where: { status: "POSTED" }, select: { totalAmount: true } },
-        },
-        orderBy: [{ invoiceDate: "asc" }, { id: "asc" }],
-      }),
-      prisma.customerLedgerEntry.groupBy({
-        by: ["customerId", "effect"],
-        _sum: { amount: true },
-      }),
-      prisma.stockMovement.groupBy({
-        by: ["productId", "direction"],
-        _sum: { quantity: true },
-      }),
-    ]);
+          orderBy: [{ invoiceDate: "asc" }, { id: "asc" }],
+        })
+      : Promise.resolve([]),
+    // Form catalogue is already fetched in one query. Stock lookup remains server-side.
+    prisma.stockMovement.groupBy({
+      by: ["productId", "direction"],
+      where: { location: { isDefault: true } },
+      _sum: { quantity: true },
+    }),
+  ]);
+
   const balanceByCustomer = new Map<string, Decimal>();
-  for (const row of customerBalances) {
-    const current = balanceByCustomer.get(row.customerId) ?? new Decimal(0);
-    const amount = decimal(row._sum.amount ?? 0);
-    balanceByCustomer.set(
-      row.customerId,
-      row.effect === "INCREASE" ? current.plus(amount) : current.minus(amount),
-    );
+  if (customers.length > 0) {
+    const customerLedgerEntries = await prisma.customerLedgerEntry.findMany({
+      where: {
+        customerId: { in: customers.map((customer) => customer.id) },
+      },
+      select: { customerId: true, effect: true, amount: true },
+    });
+
+    for (const entry of customerLedgerEntries) {
+      const balance = balanceByCustomer.get(entry.customerId) ?? new Decimal(0);
+      balanceByCustomer.set(
+        entry.customerId,
+        entry.effect === "INCREASE" ? balance.plus(entry.amount.toString()) : balance.minus(entry.amount.toString()),
+      );
+    }
   }
-  const stockByProduct = new Map<string, Decimal>();
-  for (const row of stock) {
-    const current = stockByProduct.get(row.productId) ?? new Decimal(0);
-    const quantity = decimal(row._sum.quantity ?? 0);
-    stockByProduct.set(
-      row.productId,
-      row.direction === "IN" ? current.plus(quantity) : current.minus(quantity),
-    );
-  }
+
   return {
     customers: customers.map((customer) => ({
       ...customer,
@@ -122,7 +138,16 @@ export async function getSalesOptions() {
     products: products.map((p) => ({
       ...p,
       defaultSellingPrice: p.defaultSellingPrice?.toFixed(4) ?? "",
-      currentStock: (stockByProduct.get(p.id) ?? new Decimal(0)).toFixed(),
+      available: stock
+        .filter((s) => s.productId === p.id)
+        .reduce(
+          (sum, s) =>
+            s.direction === "IN"
+              ? sum.plus(s._sum.quantity?.toString() ?? "0")
+              : sum.minus(s._sum.quantity?.toString() ?? "0"),
+          new Decimal(0),
+        )
+        .toFixed(),
     })),
     invoices: invoices
       .map((i) => ({

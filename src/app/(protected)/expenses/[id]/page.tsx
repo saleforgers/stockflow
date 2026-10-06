@@ -1,3 +1,4 @@
+import { businessLabel } from "@/lib/labels";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -25,7 +26,7 @@ export default async function ExpensePage({
     <>
       <PageHeader
         title={expense.expenseNumber}
-        description={`${expense.expenseCategory.name} · ${formatDate(expense.expenseDate)} · ${expense.status}`}
+        description={`${expense.expenseCategory.name} · ${formatDate(expense.expenseDate)} · ${businessLabel(expense.status)}`}
       />
       <div>
         <Link className="btn-secondary" href="/expenses">
@@ -61,7 +62,7 @@ export default async function ExpensePage({
           value={expense.createdAt.toLocaleString("en-GB", { timeZone: "Asia/Karachi" })}
         />
         <Detail
-          label="Posted"
+          label="Recorded"
           value={expense.postedAt.toLocaleString("en-GB", { timeZone: "Asia/Karachi" })}
         />
         <Detail

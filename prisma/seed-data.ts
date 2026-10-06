@@ -24,6 +24,8 @@ export const foundationExpenseCategories = [
   "Loading / Unloading",
   "Medical",
   "Grocery",
+  "Utilities",
+  "Other",
 ] as const;
 
 export const WALK_IN_CUSTOMER_ID = "00000000-0000-4000-8000-000000000001";

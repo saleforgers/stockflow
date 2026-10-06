@@ -1,3 +1,4 @@
+import { businessLabel } from "@/lib/labels";
 import Decimal from "decimal.js";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -83,7 +84,10 @@ export default async function PurchaseDetailPage({
         <div className="card-stat">
           <div className="text-xs font-semibold uppercase text-slate-500">Status</div>
           <div className="mt-2">
-            <StatusBadge active={purchase.status === "POSTED"} label={purchase.status} />
+            <StatusBadge
+              active={purchase.status === "POSTED"}
+              label={businessLabel(purchase.status)}
+            />
           </div>
         </div>
         <div className="card-stat">
@@ -91,7 +95,7 @@ export default async function PurchaseDetailPage({
           <div className="mt-2">
             <StatusBadge
               active={purchase.paymentStatus === "PAID"}
-              label={purchase.paymentStatus.replaceAll("_", " ")}
+              label={businessLabel(purchase.paymentStatus)}
             />
           </div>
         </div>
@@ -146,10 +150,8 @@ export default async function PurchaseDetailPage({
                 <tr>
                   <th>Product</th>
                   <th>Quantity</th>
-                  <th>Purchase price</th>
-                  <th>Discount</th>
-                  <th>Net unit cost</th>
-                  <th>Line total</th>
+                  <th>Unit cost</th>
+                  <th>Amount</th>
                   <th>Available</th>
                 </tr>
               </thead>
@@ -196,7 +198,7 @@ export default async function PurchaseDetailPage({
             <tbody>
               {purchase.paymentAllocations.map((allocation) => (
                 <tr key={allocation.id}>
-                  <td>Payment allocation</td>
+                  <td>Payment</td>
                   <td>
                     {allocation.payment.paymentNumber} • {allocation.payment.paymentMethod.name}
                   </td>
@@ -222,11 +224,18 @@ export default async function PurchaseDetailPage({
         </section>
       ) : null}
       {canWrite && purchase.status === "DRAFT" ? (
-        <PostPurchaseForm
-          action={postPurchaseAction.bind(null, purchase.id)}
-          methods={paymentMethods}
-          total={purchase.totalAmount.toFixed(2)}
-        />
+        <section className="card max-w-xl space-y-3 p-6">
+          <h2 className="font-semibold">Review and post</h2>
+          <p className="text-sm text-slate-600">
+            Posting creates immutable inventory cost layers, inbound movements, and the supplier
+            payable entry in one transaction.
+          </p>
+          <CommandForm
+            action={postPurchaseAction.bind(null, purchase.id)}
+            label="Finalize Purchase"
+            confirm="Finalize this purchase? Stock and supplier balance will be updated."
+          />
+        </section>
       ) : null}
     </>
   );

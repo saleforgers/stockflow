@@ -29,6 +29,14 @@ enum PaymentStatus {
   PAID
 }
 
+enum EstimateStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  CONVERTED
+  CANCELLED
+}
+
 enum MovementDirection {
   IN
   OUT
@@ -116,6 +124,17 @@ model User {
   customerLedgerCreated   CustomerLedgerEntry[] @relation("CustomerLedgerCreatedBy")
   expensesCreated         Expense[]             @relation("ExpenseCreatedBy")
   expensesVoided          Expense[]             @relation("ExpenseVoidedBy")
+  estimatesCreated        Estimate[]
+  demoCleanupArchives     DemoCleanupArchive[]
+}
+
+model DemoCleanupArchive {
+  id          String   @id @db.Uuid
+  createdById String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  recordCount Int
+  backup      Json
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Restrict, onUpdate: NoAction)
 }
 
 model Session {
@@ -256,6 +275,7 @@ model Customer {
   salesInvoices SalesInvoice[]
   payments      Payment[]
   ledgerEntries CustomerLedgerEntry[]
+  estimates     Estimate[]
 
   @@index([name])
   @@index([phone])
@@ -414,6 +434,7 @@ model InventoryLot {
 }
 
 model SalesInvoice {
+  requestKey              String?        @unique @db.Uuid
   id                      String         @id @default(uuid()) @db.Uuid
   invoiceNumber           String         @unique
   customerId              String         @db.Uuid
@@ -443,10 +464,40 @@ model SalesInvoice {
   returns            SaleReturn[]
   paymentAllocations CustomerPaymentAllocation[]
   ledgerEntry        CustomerLedgerEntry?
+  sourceEstimate     Estimate?
 
   @@index([customerId, invoiceDate])
   @@index([status, invoiceDate])
   @@index([locationId, invoiceDate])
+}
+
+model Estimate {
+  id                      String         @id @default(uuid()) @db.Uuid
+  requestKey              String         @unique @db.Uuid
+  estimateNumber          String         @unique
+  customerId              String         @db.Uuid
+  customerNameSnapshot    String
+  customerPhoneSnapshot   String?
+  customerAddressSnapshot String?
+  estimateDate            DateTime       @db.Date
+  validUntil              DateTime?      @db.Date
+  status                  EstimateStatus @default(DRAFT)
+  lines                   Json
+  subtotal                Decimal        @db.Decimal(18, 2)
+  invoiceDiscountAmount   Decimal        @default(0) @db.Decimal(18, 2)
+  totalAmount             Decimal        @db.Decimal(18, 2)
+  notes                   String?
+  convertedInvoiceId      String?        @unique @db.Uuid
+  createdById             String         @db.Uuid
+  createdAt               DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime       @updatedAt @db.Timestamptz(6)
+
+  customer         Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  convertedInvoice SalesInvoice? @relation(fields: [convertedInvoiceId], references: [id], onDelete: Restrict)
+  createdBy        User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([status, estimateDate])
+  @@index([customerId, estimateDate])
 }
 
 model SalesInvoiceLine {
@@ -615,6 +666,7 @@ model SaleReturnAllocation {
 }
 
 model StockAdjustment {
+  requestKey       String?        @unique @db.Uuid
   id               String         @id @default(uuid()) @db.Uuid
   adjustmentNumber String         @unique
   adjustmentDate   DateTime       @db.Date

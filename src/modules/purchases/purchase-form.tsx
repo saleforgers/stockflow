@@ -365,7 +365,7 @@ export function PurchaseForm({
                     />
                   </label>
                   <div className="text-xs font-semibold text-slate-600">
-                    Line total
+                    Amount
                     <div className="mt-1 py-2 text-sm text-slate-900">
                       PKR {safeNetAmount(line.quantity, line.unitCost, line.lineDiscountAmount)}
                     </div>

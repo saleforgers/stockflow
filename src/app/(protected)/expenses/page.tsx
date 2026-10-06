@@ -1,3 +1,4 @@
+import { businessLabel } from "@/lib/labels";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/ui/empty-state";
@@ -34,7 +35,7 @@ export default async function ExpensesPage({
     <>
       <PageHeader
         title="Expenses"
-        description="Operating expenses kept separate from purchases, inventory and FIFO costing."
+        description="Operating expenses kept separate from purchases, inventory cost."
         actionHref={canWrite ? "/expenses/new" : undefined}
         actionLabel="Add Expense"
       />
@@ -101,8 +102,8 @@ export default async function ExpensesPage({
           Status
           <select className="input mt-1.5" defaultValue={params.status ?? ""} name="status">
             <option value="">All statuses</option>
-            <option value="POSTED">Posted</option>
-            <option value="VOID">Void</option>
+            <option value="POSTED">Finalized</option>
+            <option value="VOID">Cancelled</option>
           </select>
         </label>
         <div className="flex items-end">
@@ -112,7 +113,7 @@ export default async function ExpensesPage({
         </div>
       </form>
       <div className="card p-5">
-        <p className="text-sm text-slate-500">Filtered posted expense total</p>
+        <p className="text-sm text-slate-500">Filtered expense total</p>
         <p className="mt-1 text-2xl font-bold text-slate-900">{formatPkr(result.filteredAmount)}</p>
       </div>
       {result.items.length === 0 ? (
@@ -151,7 +152,7 @@ export default async function ExpensesPage({
                   <td>{item.payeeName ?? "—"}</td>
                   <td>{formatPkr(item.amount)}</td>
                   <td>{item.createdBy.name}</td>
-                  <td>{item.status}</td>
+                  <td>{businessLabel(item.status)}</td>
                 </tr>
               ))}
             </tbody>

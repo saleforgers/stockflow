@@ -16,6 +16,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const lines = invoice.lines
     .map((l) => ({
       id: l.id,
+      original: l.quantity.toFixed(),
+      returned: l.returnLines
+        .reduce((s, r) => s.plus(r.quantity.toString()), new Decimal(0))
+        .toFixed(),
       name: `${l.skuSnapshot} — ${l.productNameSnapshot} (${l.uomCodeSnapshot})`,
       remaining: new Decimal(l.quantity.toString())
         .minus(l.returnLines.reduce((s, r) => s.plus(r.quantity.toString()), new Decimal(0)))

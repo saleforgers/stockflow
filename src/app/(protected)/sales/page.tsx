@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { businessLabel, invoiceStatus } from "@/lib/labels";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { requireUser } from "@/lib/auth/session";
@@ -17,16 +18,16 @@ export default async function SalesPage({
     <>
       <PageHeader
         title="Sales invoices"
-        description="Create, review and post customer invoices."
+        description="Create invoices, record payments and track customer balances."
         {...(user.role !== "STAFF" ? { actionHref: "/sales/new", actionLabel: "New invoice" } : {})}
       />
       <div className="flex gap-3">
         <Link className="btn-secondary" href="/customer-ledger">
-          Customer ledger
+          Customer Accounts
         </Link>
         {user.role !== "STAFF" && (
           <Link className="btn-secondary" href="/customer-receipts/new">
-            Record receipt
+            Record Payment
           </Link>
         )}
       </div>
@@ -62,9 +63,9 @@ export default async function SalesPage({
                 </td>
                 <td>{formatDate(i.invoiceDate)}</td>
                 <td>{i.customerNameSnapshot}</td>
-                <td>{i.status}</td>
+                <td>{invoiceStatus(i.status, i.paymentStatus)}</td>
                 <td>{formatPkr(i.totalAmount)}</td>
-                <td>{i.paymentStatus}</td>
+                <td>{businessLabel(i.paymentStatus)}</td>
               </tr>
             ))}
           </tbody>
