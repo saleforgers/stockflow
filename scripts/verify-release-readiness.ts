@@ -34,13 +34,15 @@ async function main() {
       const sql = await readFile(`prisma/migrations/${directory.name}/migration.sql`);
       const checksum = createHash("sha256").update(sql).digest("hex");
       // Windows checkouts may use CRLF; Prisma's applied migration may use Git LF bytes.
-      const lfChecksum = createHash("sha256")
-        .update(sql.toString().replaceAll("\r\n", "\n"))
+      const normalizedSql = sql.toString().replaceAll("\r\n", "\n");
+      const lfChecksum = createHash("sha256").update(normalizedSql).digest("hex");
+      const crlfChecksum = createHash("sha256")
+        .update(normalizedSql.replaceAll("\n", "\r\n"))
         .digest("hex");
       const applied = migrations.rows.find(
         (row) => row.migration_name === directory.name && row.finished_at && !row.rolled_back_at,
       );
-      if (!applied || ![checksum, lfChecksum].includes(applied.checksum))
+      if (!applied || ![checksum, lfChecksum, crlfChecksum].includes(applied.checksum))
         missing.push(directory.name);
     }
     const columns = await client.query<{ column_name: string }>(
