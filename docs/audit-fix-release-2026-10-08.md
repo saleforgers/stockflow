@@ -23,4 +23,16 @@ Vercel sensitive environment exports contained empty values for DATABASE_URL/AUT
 
 Added a protected, manual read-only production schema verification workflow, and a schema verification step after the existing production migration workflow. These query only migration/column metadata and never print credentials or business records.
 
-The owner explicitly authorized production deployment on October 8. The existing protected [migration workflow](https://github.com/saleforgers/stockflow/actions/runs/37683386153) was dispatched against reviewed commit `90c82df` before publishing the application fixes. Production readiness and deployment results are recorded after the release completes.
+The owner explicitly authorized production deployment on October 8. The existing protected [migration workflow](https://github.com/saleforgers/stockflow/actions/runs/37683386153) succeeded against reviewed commit `90c82df` before publishing the application fixes. It found 10 migrations with none pending and applied no additional SQL.
+
+Implementation release `6abc011` reached Ready and was followed by checksum-verifier correction `29998fd`. The verifier now accepts both LF and CRLF migration checksums; the initial Linux verification failed only for the two Windows-authored migration checksums. No applied migration was edited. The [corrected read-only verification](https://github.com/saleforgers/stockflow/actions/runs/37683921696) succeeded: all 10 migrations, matching checksums, required purchase discount columns, and no unresolved failed migration.
+
+Vercel production deployment `dpl_8sCwLecSG62bLzM7E3LbLPS3Wfps` reached Ready from `29998fd`; the canonical application and both other existing aliases resolve to it. [Open production](https://stockflow-brown-mu.vercel.app). Public smoke checks: login 200; sales/purchases/new, movement history and item history redirect to login; invoice PDF rejects unauthenticated access with 401. PDF previews use the versioned `/pdfjs/pdf.worker-6.3.289.min.mjs` asset, not the unversioned worker name.
+
+## Environment isolation finding
+
+The successful protected production workflow and the local development connection produced the **same database connection fingerprint**. Therefore, the workflow migration target and locally labelled disposable development target are the same connection identity. This does not establish which one matches the Vercel runtime: production sensitive environment values cannot be exported, so runtime identity remains unconfirmed.
+
+No further development database writes were performed after this finding. The local ignored environment's disposable-development acknowledgement was changed to `shared-target-unconfirmed`, preventing guarded integration/seed tooling from treating that target as disposable. No business data was purged, copied, or moved, and no production connection or auth setting was replaced.
+
+Before further database acceptance work or changing migration targets, independently identify the actual Vercel runtime Supabase project, the intended production project, and a separate disposable development project. The production migration job's label alone is not proof of correct project separation. Authenticated owner workflow review is also still required; these public smoke checks do not simulate a posted production business transaction.
