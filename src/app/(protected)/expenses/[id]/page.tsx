@@ -2,6 +2,8 @@ import { businessLabel } from "@/lib/labels";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { DocumentHeading, DocumentTotals } from "@/components/ui/document-layout";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireUser } from "@/lib/auth/session";
 import { formatDate, formatPkr } from "@/lib/format";
@@ -50,37 +52,55 @@ export default async function ExpensePage({
             : "Expense saved successfully."}
         </div>
       ) : null}
-      <div className="card grid gap-5 p-6 sm:grid-cols-2 lg:grid-cols-3">
-        <Detail label="Amount" value={formatPkr(expense.amount)} />
-        <Detail label="Payment Method" value={expense.paymentMethod.name} />
-        <Detail label="Description" value={expense.description} />
-        <Detail label="Paid To" value={expense.payeeName} />
-        <Detail label="Reference" value={expense.reference} />
-        <Detail label="Created By" value={expense.createdBy.name} />
-        <Detail
-          label="Created"
-          value={expense.createdAt.toLocaleString("en-GB", { timeZone: "Asia/Karachi" })}
-        />
-        <Detail
-          label="Recorded"
-          value={expense.postedAt.toLocaleString("en-GB", { timeZone: "Asia/Karachi" })}
-        />
-        <Detail
-          label="Last Updated"
-          value={expense.updatedAt.toLocaleString("en-GB", { timeZone: "Asia/Karachi" })}
-        />
-        <Detail label="Notes" value={expense.notes} />
-        {expense.status === "VOID" ? (
-          <>
-            <Detail label="Voided By" value={expense.voidedBy?.name} />
-            <Detail label="Void Reason" value={expense.voidReason} />
-            <Detail
-              label="Voided"
-              value={expense.voidedAt?.toLocaleString("en-GB", { timeZone: "Asia/Karachi" })}
+      <section className="card invoice-document">
+        <DocumentHeading
+          title="Expense voucher"
+          description={`${expense.expenseNumber} · ${formatDate(expense.expenseDate)}`}
+          aside={
+            <StatusBadge
+              active={expense.status === "POSTED"}
+              label={businessLabel(expense.status)}
             />
-          </>
-        ) : null}
-      </div>
+          }
+        />
+        <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid content-start gap-5 sm:grid-cols-2">
+            <Detail label="Category" value={expense.expenseCategory.name} />
+            <Detail label="Description" value={expense.description} />
+            <Detail label="Paid To" value={expense.payeeName} />
+            <Detail label="Reference" value={expense.reference} />
+            <Detail label="Created By" value={expense.createdBy.name} />
+            <Detail
+              label="Created"
+              value={expense.createdAt.toLocaleString("en-GB", { timeZone: "Asia/Karachi" })}
+            />
+            <Detail
+              label="Recorded"
+              value={expense.postedAt.toLocaleString("en-GB", { timeZone: "Asia/Karachi" })}
+            />
+            <Detail
+              label="Last Updated"
+              value={expense.updatedAt.toLocaleString("en-GB", { timeZone: "Asia/Karachi" })}
+            />
+            <Detail label="Notes" value={expense.notes} />
+            {expense.status === "VOID" ? (
+              <>
+                <Detail label="Voided By" value={expense.voidedBy?.name} />
+                <Detail label="Void Reason" value={expense.voidReason} />
+                <Detail
+                  label="Voided"
+                  value={expense.voidedAt?.toLocaleString("en-GB", { timeZone: "Asia/Karachi" })}
+                />
+              </>
+            ) : null}
+          </div>
+          <DocumentTotals title="Expense amount">
+            <p className="text-3xl font-semibold text-indigo-900">{formatPkr(expense.amount)}</p>
+            <Detail label="Payment Method" value={expense.paymentMethod.name} />
+            <p className="text-xs text-slate-500">Paid operating expense</p>
+          </DocumentTotals>
+        </div>
+      </section>
       {canVoid ? <VoidExpenseForm action={voidExpenseAction.bind(null, expense.id)} /> : null}
     </>
   );

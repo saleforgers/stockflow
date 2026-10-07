@@ -1,5 +1,10 @@
 "use client";
 import Decimal from "decimal.js";
+import {
+  DocumentHeading,
+  DocumentTotals,
+  InvoiceGridHeading,
+} from "@/components/ui/document-layout";
 import { useActionState, useMemo, useState } from "react";
 import type { ActionResult } from "@/lib/actions/action-result";
 import { INITIAL_ACTION_RESULT } from "@/lib/actions/action-result";
@@ -52,7 +57,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-1 text-sm font-medium">
-      {label}
+      <span>{label}</span>
       <input
         className="input"
         name={name}
@@ -174,206 +179,328 @@ export function InvoiceForm({
   const preview = invoicePreview(command, products, paid);
   return (
     <>
-      <form action={formAction} className="card space-y-5 p-6">
-        <FormMessage result={state} />
-        <input type="hidden" name="payload" value={JSON.stringify(command)} />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block space-y-1 text-sm font-medium">
-            Customer
-            <PartySelector
-              addLabel="Add New Customer"
-              allLabel="All Customers"
-              id="customer"
-              parties={customerOptions}
-              placeholder="Select Customer"
-              recentLabel="Recent Customers"
-              value={command.customerId}
-              onAddNew={quickCreateAction ? () => setShowCustomerDialog(true) : undefined}
-              onChange={(id) =>
-                updateCommand((current) => withSelectedParty(current, "customerId", id))
-              }
-            />
-          </label>
-          <Field
-            label={estimate ? "Estimate Date" : "Invoice Date"}
-            name="date"
-            type="date"
-            value={command.invoiceDate}
-            onChange={(v) => updateCommand((c) => ({ ...c, invoiceDate: v }))}
+      <form
+        action={formAction}
+        onReset={estimate ? undefined : (event) => event.preventDefault()}
+        className={estimate ? "card space-y-5 p-6" : "card invoice-document space-y-5"}
+      >
+        {!estimate && (
+          <DocumentHeading
+            title="Sale invoice"
+            description="Customer details, items and invoice totals"
+            aside={<span className="status-badge status-inactive">Draft entry</span>}
           />
-        </div>
-        {command.lines.map((line, i) => (
-          <fieldset key={i} className="space-y-3 rounded-lg border p-4">
-            <legend>Line {i + 1}</legend>
-            <div className="space-y-1 text-sm font-medium">
-              <label htmlFor={`product-${i}`}>Product / SKU / unit</label>
-              <ProductSelector
-                id={`product-${i}`}
-                products={productOptions}
-                value={line.productId}
-                onChange={(id) => {
-                  const product = products.find((item) => item.id === id);
-                  updateCommand((current) => ({
-                    ...current,
-                    lines: current.lines.map((currentLine, index) =>
-                      index === i
-                        ? {
-                            ...currentLine,
-                            productId: id,
-                            unitPrice: product?.defaultSellingPrice ?? "",
-                          }
-                        : currentLine,
-                    ),
-                  }));
-                }}
+        )}
+        <div className={estimate ? "space-y-5" : "space-y-5 px-4 pb-5 sm:px-5"}>
+          <FormMessage result={state} />
+          <input type="hidden" name="payload" value={JSON.stringify(command)} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block space-y-1 text-sm font-medium">
+              Customer
+              <PartySelector
+                addLabel="Add New Customer"
+                allLabel="All Customers"
+                id="customer"
+                parties={customerOptions}
+                placeholder="Select Customer"
+                recentLabel="Recent Customers"
+                value={command.customerId}
+                onAddNew={quickCreateAction ? () => setShowCustomerDialog(true) : undefined}
+                onChange={(id) =>
+                  updateCommand((current) => withSelectedParty(current, "customerId", id))
+                }
               />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field
-                label="Quantity"
-                name={`qty-${i}`}
-                value={line.quantity}
-                onChange={(v) => changeLine(i, "quantity", v)}
-              />
-              <Field
-                label="Unit selling price (PKR)"
-                name={`price-${i}`}
-                value={line.unitPrice}
-                onChange={(v) => changeLine(i, "unitPrice", v)}
-              />
-              <Field
-                label="Line discount (PKR)"
-                name={`discount-${i}`}
-                value={line.lineDiscountAmount}
-                onChange={(v) => changeLine(i, "lineDiscountAmount", v)}
-              />
-            </div>
+            </label>
             <Field
-              label="Line notes"
-              name={`notes-${i}`}
-              value={line.notes ?? ""}
-              onChange={(v) => changeLine(i, "notes", v)}
-              required={false}
+              label={estimate ? "Estimate Date" : "Invoice Date"}
+              name="date"
+              type="date"
+              value={command.invoiceDate}
+              onChange={(v) => updateCommand((c) => ({ ...c, invoiceDate: v }))}
             />
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={command.lines.length === 1}
-              onClick={() =>
-                updateCommand((c) => ({
-                  ...c,
-                  lines: c.lines.filter((_, index) => index !== i),
-                }))
-              }
-            >
-              Remove line
-            </button>
-          </fieldset>
-        ))}
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={() =>
-            updateCommand((c) => ({
-              ...c,
-              lines: [
-                ...c.lines,
-                { productId: "", quantity: "1", unitPrice: "", lineDiscountAmount: "0" },
-              ],
-            }))
-          }
-        >
-          + Add Product
-        </button>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="space-y-4">
-            <Field
-              label="Invoice Discount (PKR)"
-              name="invoiceDiscount"
-              value={command.invoiceDiscountAmount}
-              onChange={(v) => updateCommand((c) => ({ ...c, invoiceDiscountAmount: v }))}
-            />
-            <Field
-              label="Notes"
-              name="notes"
-              value={command.notes ?? ""}
-              onChange={(v) => updateCommand((c) => ({ ...c, notes: v }))}
-              required={false}
-            />
-            {!estimate && (
-              <>
-                <SalesPaymentControls
-                  paymentType={paymentType}
-                  onPaymentTypeChange={setSelectedPaymentType}
-                  amount={paid}
-                  onAmountChange={setPartialAmount}
-                  methodId={paymentMethodId}
-                  onMethodChange={setPaymentMethodId}
-                  methods={methods}
-                  total={totals.total}
-                  walkIn={isWalkIn}
+          </div>
+          {estimate ? (
+            command.lines.map((line, i) => (
+              <fieldset key={i} className="space-y-3 rounded-lg border p-4">
+                <legend>Line {i + 1}</legend>
+                <div className="space-y-1 text-sm font-medium">
+                  <label htmlFor={`product-${i}`}>Product / SKU / unit</label>
+                  <ProductSelector
+                    id={`product-${i}`}
+                    products={productOptions}
+                    value={line.productId}
+                    onChange={(id) => {
+                      const product = products.find((item) => item.id === id);
+                      updateCommand((current) => ({
+                        ...current,
+                        lines: current.lines.map((currentLine, index) =>
+                          index === i
+                            ? {
+                                ...currentLine,
+                                productId: id,
+                                unitPrice: product?.defaultSellingPrice ?? "",
+                              }
+                            : currentLine,
+                        ),
+                      }));
+                    }}
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Field
+                    label="Quantity"
+                    name={`qty-${i}`}
+                    value={line.quantity}
+                    onChange={(v) => changeLine(i, "quantity", v)}
+                  />
+                  <Field
+                    label="Unit selling price (PKR)"
+                    name={`price-${i}`}
+                    value={line.unitPrice}
+                    onChange={(v) => changeLine(i, "unitPrice", v)}
+                  />
+                  <Field
+                    label="Line discount (PKR)"
+                    name={`discount-${i}`}
+                    value={line.lineDiscountAmount}
+                    onChange={(v) => changeLine(i, "lineDiscountAmount", v)}
+                  />
+                </div>
+                <Field
+                  label="Line notes"
+                  name={`notes-${i}`}
+                  value={line.notes ?? ""}
+                  onChange={(v) => changeLine(i, "notes", v)}
+                  required={false}
                 />
-                {isWalkIn && hasBalanceDue(invoiceTotal, paid) && (
-                  <p className="alert-error" role="alert">
-                    Walk-in sales must be fully paid. Select or create a named customer for
-                    credit/partial sales.
-                  </p>
-                )}
-              </>
-            )}
-            {estimate && (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={command.lines.length === 1}
+                  onClick={() =>
+                    updateCommand((c) => ({
+                      ...c,
+                      lines: c.lines.filter((_, index) => index !== i),
+                    }))
+                  }
+                >
+                  Remove line
+                </button>
+              </fieldset>
+            ))
+          ) : (
+            <section className="rounded-lg border border-slate-200" aria-label="Invoice items">
+              <InvoiceGridHeading priceLabel="Selling price (PKR)" />
+              {command.lines.map((line, i) => (
+                <div
+                  key={i}
+                  className="invoice-entry-row"
+                  role="group"
+                  aria-label={`Invoice line ${i + 1}`}
+                >
+                  <div className="space-y-1 text-sm font-medium">
+                    <label htmlFor={`product-${i}`}>Product / SKU / unit</label>
+                    <ProductSelector
+                      id={`product-${i}`}
+                      products={productOptions}
+                      value={line.productId}
+                      onChange={(id) => {
+                        const product = products.find((item) => item.id === id);
+                        updateCommand((current) => ({
+                          ...current,
+                          lines: current.lines.map((currentLine, index) =>
+                            index === i
+                              ? {
+                                  ...currentLine,
+                                  productId: id,
+                                  unitPrice: product?.defaultSellingPrice ?? "",
+                                }
+                              : currentLine,
+                          ),
+                        }));
+                      }}
+                    />
+                  </div>
+                  <Field
+                    label={`Quantity · line ${i + 1}`}
+                    name={`qty-${i}`}
+                    value={line.quantity}
+                    onChange={(v) => changeLine(i, "quantity", v)}
+                  />
+                  <Field
+                    label={`Selling price (PKR) · line ${i + 1}`}
+                    name={`price-${i}`}
+                    value={line.unitPrice}
+                    onChange={(v) => changeLine(i, "unitPrice", v)}
+                  />
+                  <Field
+                    label={`Discount (PKR) · line ${i + 1}`}
+                    name={`discount-${i}`}
+                    value={line.lineDiscountAmount}
+                    onChange={(v) => changeLine(i, "lineDiscountAmount", v)}
+                  />
+                  <div className="self-end pb-2 text-sm tabular-nums">
+                    <span className="block text-xs text-slate-500 xl:sr-only">Amount (PKR)</span>
+                    <strong>{preview.amounts[i]}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-danger self-end"
+                    aria-label={`Remove line ${i + 1}`}
+                    disabled={command.lines.length === 1}
+                    onClick={() =>
+                      updateCommand((c) => ({
+                        ...c,
+                        lines: c.lines.filter((_, index) => index !== i),
+                      }))
+                    }
+                  >
+                    Remove
+                  </button>
+                  <div className="invoice-row-extra flex flex-wrap items-start gap-3 text-xs text-slate-500">
+                    {line.productId && (
+                      <span>
+                        Current stock: {products.find((p) => p.id === line.productId)?.available}{" "}
+                        {products.find((p) => p.id === line.productId)?.inventoryUnit.code}
+                      </span>
+                    )}
+                    {preview.shortages[i] && (
+                      <span className="text-red-700" role="alert">
+                        {preview.shortages[i]}
+                      </span>
+                    )}
+                    <details className="min-w-0 flex-1">
+                      <summary className="cursor-pointer text-indigo-700">
+                        Line notes{line.notes ? " · added" : ""}
+                      </summary>
+                      <div className="mt-2">
+                        <Field
+                          label={`Line notes · line ${i + 1}`}
+                          name={`notes-${i}`}
+                          value={line.notes ?? ""}
+                          onChange={(v) => changeLine(i, "notes", v)}
+                          required={false}
+                        />
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() =>
+              updateCommand((c) => ({
+                ...c,
+                lines: [
+                  ...c.lines,
+                  { productId: "", quantity: "1", unitPrice: "", lineDiscountAmount: "0" },
+                ],
+              }))
+            }
+          >
+            + Add Product
+          </button>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-4">
               <Field
-                label="Valid Until (optional)"
-                name="validUntil"
-                type="date"
-                value={validUntil}
+                label="Invoice Discount (PKR)"
+                name="invoiceDiscount"
+                value={command.invoiceDiscountAmount}
+                onChange={(v) => updateCommand((c) => ({ ...c, invoiceDiscountAmount: v }))}
+              />
+              <Field
+                label="Notes"
+                name="notes"
+                value={command.notes ?? ""}
+                onChange={(v) => updateCommand((c) => ({ ...c, notes: v }))}
                 required={false}
               />
-            )}
-          </div>
-          <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-6 space-y-4 tabular-nums">
-            <p>
-              Subtotal <strong className="float-right">PKR {preview.subtotal}</strong>
-            </p>
-            <p>
-              Invoice Discount{" "}
-              <strong className="float-right">PKR {command.invoiceDiscountAmount || "0"}</strong>
-            </p>
-            <p className="border-t border-indigo-200 pt-4 text-xl font-semibold text-indigo-900">
-              Grand Total <strong className="float-right">PKR {preview.total}</strong>
-            </p>
-            {!estimate && (
-              <>
-                <p className="text-emerald-700">
-                  Paid Now <strong className="float-right">PKR {paid || "0"}</strong>
-                </p>
-                <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 font-semibold text-amber-900">
-                  Balance Due <strong className="float-right">PKR {preview.balance}</strong>
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-        {preview.error && <p className="text-sm text-red-700">{preview.error}</p>}
-        <div className="flex gap-3">
-          <SubmitButton disabled={!customer} name="intent" value="draft" formNoValidate>
-            Save Draft
-          </SubmitButton>
-          {!estimate && (
-            <SubmitButton
-              name="intent"
-              value="finalize"
-              disabled={!customer || !!preview.error || preview.shortages.some(Boolean)}
+              {!estimate && (
+                <>
+                  <SalesPaymentControls
+                    paymentType={paymentType}
+                    onPaymentTypeChange={setSelectedPaymentType}
+                    amount={paid}
+                    onAmountChange={setPartialAmount}
+                    methodId={paymentMethodId}
+                    onMethodChange={setPaymentMethodId}
+                    methods={methods}
+                    total={totals.total}
+                    walkIn={isWalkIn}
+                  />
+                  {isWalkIn && hasBalanceDue(invoiceTotal, paid) && (
+                    <p className="alert-error" role="alert">
+                      Walk-in sales must be fully paid. Select or create a named customer for
+                      credit/partial sales.
+                    </p>
+                  )}
+                </>
+              )}
+              {estimate && (
+                <Field
+                  label="Valid Until (optional)"
+                  name="validUntil"
+                  type="date"
+                  value={validUntil}
+                  required={false}
+                />
+              )}
+            </div>
+            <DocumentTotals
+              className={
+                estimate
+                  ? "rounded-xl border border-indigo-100 bg-indigo-50/50 p-6 space-y-4 tabular-nums"
+                  : undefined
+              }
+              title={estimate ? undefined : "Invoice summary"}
+              hideTitle={estimate}
             >
-              Finalize Invoice
+              <p>
+                Subtotal <strong className="float-right">PKR {preview.subtotal}</strong>
+              </p>
+              <p>
+                Invoice Discount{" "}
+                <strong className="float-right">PKR {command.invoiceDiscountAmount || "0"}</strong>
+              </p>
+              <p className="border-t border-indigo-200 pt-4 text-xl font-semibold text-indigo-900">
+                Grand Total <strong className="float-right">PKR {preview.total}</strong>
+              </p>
+              {!estimate && (
+                <>
+                  <p className="text-emerald-700">
+                    Paid Now <strong className="float-right">PKR {paid || "0"}</strong>
+                  </p>
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 font-semibold text-amber-900">
+                    Balance Due <strong className="float-right">PKR {preview.balance}</strong>
+                  </p>
+                </>
+              )}
+            </DocumentTotals>
+          </div>
+          {preview.error && <p className="text-sm text-red-700">{preview.error}</p>}
+          <div className={estimate ? "flex gap-3" : "document-actions rounded-lg"}>
+            <SubmitButton disabled={!customer} name="intent" value="draft" formNoValidate>
+              Save Draft
             </SubmitButton>
-          )}
+            {!estimate && (
+              <SubmitButton
+                name="intent"
+                value="finalize"
+                disabled={!customer || !!preview.error || preview.shortages.some(Boolean)}
+              >
+                Finalize Invoice
+              </SubmitButton>
+            )}
+          </div>
+          <p className="text-sm text-slate-500">
+            {estimate
+              ? "Estimates do not reserve or deduct stock."
+              : "Drafts do not deduct stock. Finalizing updates stock and the customer account. Availability is checked again when you finalize."}
+          </p>
         </div>
-        <p className="text-sm text-slate-500">
-          {estimate
-            ? "Estimates do not reserve or deduct stock."
-            : "Drafts do not deduct stock. Finalizing updates stock and the customer account. Availability is checked again when you finalize."}
-        </p>
       </form>
       {quickCreateAction ? (
         <QuickPartyDialog

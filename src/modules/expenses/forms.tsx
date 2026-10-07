@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { DocumentHeading } from "@/components/ui/document-layout";
 import { useActionState, useState } from "react";
 
 import { FormField } from "@/components/ui/form-field";
@@ -25,84 +26,102 @@ export function ExpenseForm({
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
   return (
-    <form action={formAction} className="card max-w-3xl space-y-5 p-6">
-      <FormMessage result={state} />
-      <input name="requestKey" type="hidden" value={requestKey} />
-      <div className="grid gap-5 sm:grid-cols-2">
-        <FormField htmlFor="expenseDate" label="Expense Date" required>
-          <input
-            className="input"
-            defaultValue={date}
-            id="expenseDate"
-            name="expenseDate"
-            required
-            type="date"
-          />
-        </FormField>
-        <FormField htmlFor="expenseCategoryId" label="Category" required>
-          <select
-            className="input"
-            id="expenseCategoryId"
-            name="expenseCategoryId"
-            required
-            defaultValue=""
-          >
-            <option disabled value="">
-              Select category
-            </option>
-            {categories.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
+    <form
+      action={formAction}
+      onReset={(event) => event.preventDefault()}
+      className="card invoice-document"
+    >
+      <DocumentHeading
+        title="Expense voucher"
+        description="Record a paid operating expense"
+        aside={<span className="status-badge status-inactive">New entry</span>}
+      />
+      <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-5">
+          <FormMessage result={state} />
+          <input name="requestKey" type="hidden" value={requestKey} />
+          <div className="grid gap-5 sm:grid-cols-2">
+            <FormField htmlFor="expenseDate" label="Expense Date" required>
+              <input
+                className="input"
+                defaultValue={date}
+                id="expenseDate"
+                name="expenseDate"
+                required
+                type="date"
+              />
+            </FormField>
+            <FormField htmlFor="expenseCategoryId" label="Category" required>
+              <select
+                className="input"
+                id="expenseCategoryId"
+                name="expenseCategoryId"
+                required
+                defaultValue=""
+              >
+                <option disabled value="">
+                  Select category
+                </option>
+                {categories.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          </div>
+          <FormField htmlFor="description" label="Description" required>
+            <input className="input" id="description" maxLength={500} name="description" required />
+          </FormField>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <FormField htmlFor="payeeName" label="Paid To">
+              <input className="input" id="payeeName" maxLength={200} name="payeeName" />
+            </FormField>
+            <FormField htmlFor="reference" label="Reference">
+              <input className="input" id="reference" maxLength={200} name="reference" />
+            </FormField>
+          </div>
+          <FormField htmlFor="notes" label="Notes">
+            <textarea className="input min-h-28" id="notes" maxLength={2000} name="notes" />
+          </FormField>
+        </div>
+        <aside className="document-totals self-start space-y-5">
+          <h2 className="document-eyebrow">Expense amount</h2>
+          <FormField htmlFor="amount" label="Amount (PKR)" required>
+            <input
+              className="input text-2xl font-semibold tabular-nums"
+              id="amount"
+              inputMode="decimal"
+              min="0.01"
+              name="amount"
+              placeholder="0.00"
+              required
+              step="0.01"
+            />
+          </FormField>
+          <FormField htmlFor="paymentMethodId" label="Payment Method" required>
+            <select
+              className="input"
+              id="paymentMethodId"
+              name="paymentMethodId"
+              required
+              defaultValue=""
+            >
+              <option disabled value="">
+                Select payment method
               </option>
-            ))}
-          </select>
-        </FormField>
-        <FormField htmlFor="amount" label="Amount (PKR)" required>
-          <input
-            className="input"
-            id="amount"
-            inputMode="decimal"
-            min="0.01"
-            name="amount"
-            placeholder="0.00"
-            required
-            step="0.01"
-          />
-        </FormField>
-        <FormField htmlFor="paymentMethodId" label="Payment Method" required>
-          <select
-            className="input"
-            id="paymentMethodId"
-            name="paymentMethodId"
-            required
-            defaultValue=""
-          >
-            <option disabled value="">
-              Select payment method
-            </option>
-            {paymentMethods.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </FormField>
+              {paymentMethods.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </FormField>
+
+          <p className="text-xs text-slate-500">Paid operating expense · PKR</p>
+        </aside>
       </div>
-      <FormField htmlFor="description" label="Description" required>
-        <input className="input" id="description" maxLength={500} name="description" required />
-      </FormField>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <FormField htmlFor="payeeName" label="Paid To">
-          <input className="input" id="payeeName" maxLength={200} name="payeeName" />
-        </FormField>
-        <FormField htmlFor="reference" label="Reference">
-          <input className="input" id="reference" maxLength={200} name="reference" />
-        </FormField>
-      </div>
-      <FormField htmlFor="notes" label="Notes">
-        <textarea className="input min-h-28" id="notes" maxLength={2000} name="notes" />
-      </FormField>
-      <div className="flex gap-3 border-t border-slate-200 pt-5">
+      <div className="document-actions">
         <SubmitButton>Save expense</SubmitButton>
         <Link className="btn-secondary" href="/expenses">
           Cancel

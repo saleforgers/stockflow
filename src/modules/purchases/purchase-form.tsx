@@ -1,6 +1,11 @@
 "use client";
 
 import Decimal from "decimal.js";
+import {
+  DocumentHeading,
+  DocumentTotals,
+  InvoiceGridHeading,
+} from "@/components/ui/document-layout";
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { FormField } from "@/components/ui/form-field";
@@ -196,63 +201,76 @@ export function PurchaseForm({
 
   return (
     <>
-      <form action={formAction} className="space-y-6">
+      <form
+        action={formAction}
+        onReset={(event) => event.preventDefault()}
+        className="invoice-document space-y-5"
+      >
         <input name="payload" type="hidden" value={JSON.stringify(payload)} />
         <FormMessage result={result} />
-        <section className="card grid gap-5 p-6 sm:grid-cols-2">
-          <FormField htmlFor="supplier" label="Supplier" required>
-            <PartySelector
-              addLabel="Add New Supplier"
-              allLabel="All Suppliers"
-              id="supplier"
-              parties={supplierOptions}
-              placeholder="Select Supplier"
-              recentLabel="Recent Suppliers"
-              value={value.supplierId}
-              onAddNew={quickCreateAction ? () => setShowSupplierDialog(true) : undefined}
-              onChange={(id) => setValue((current) => withSelectedParty(current, "supplierId", id))}
-            />
-          </FormField>
-          <FormField htmlFor="purchaseDate" label="Purchase / bill date" required>
-            <input
-              className="input"
-              id="purchaseDate"
-              type="date"
-              value={value.purchaseDate}
-              onChange={(event) => setValue({ ...value, purchaseDate: event.target.value })}
-              required
-            />
-          </FormField>
-          <FormField htmlFor="supplierInvoiceRef" label="Supplier reference">
-            <input
-              className="input"
-              id="supplierInvoiceRef"
-              maxLength={160}
-              value={value.supplierInvoiceRef}
-              onChange={(event) => setValue({ ...value, supplierInvoiceRef: event.target.value })}
-            />
-          </FormField>
-          <FormField
-            htmlFor="additionalCharges"
-            label="Additional charges (PKR)"
-            hint="Recorded on the bill; not allocated into inventory cost."
-          >
-            <input
-              className="input"
-              id="additionalCharges"
-              inputMode="decimal"
-              value={value.additionalCharges}
-              onChange={(event) => setValue({ ...value, additionalCharges: event.target.value })}
-            />
-          </FormField>
-          <FormField htmlFor="notes" label="Notes">
-            <textarea
-              className="input min-h-20"
-              id="notes"
-              value={value.notes}
-              onChange={(event) => setValue({ ...value, notes: event.target.value })}
-            />
-          </FormField>
+        <section className="card">
+          <DocumentHeading
+            title="Purchase invoice"
+            description="Supplier details and receiving lots"
+            aside={<span className="status-badge status-inactive">Draft entry</span>}
+          />
+          <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+            <FormField htmlFor="supplier" label="Supplier" required>
+              <PartySelector
+                addLabel="Add New Supplier"
+                allLabel="All Suppliers"
+                id="supplier"
+                parties={supplierOptions}
+                placeholder="Select Supplier"
+                recentLabel="Recent Suppliers"
+                value={value.supplierId}
+                onAddNew={quickCreateAction ? () => setShowSupplierDialog(true) : undefined}
+                onChange={(id) =>
+                  setValue((current) => withSelectedParty(current, "supplierId", id))
+                }
+              />
+            </FormField>
+            <FormField htmlFor="purchaseDate" label="Purchase / bill date" required>
+              <input
+                className="input"
+                id="purchaseDate"
+                type="date"
+                value={value.purchaseDate}
+                onChange={(event) => setValue({ ...value, purchaseDate: event.target.value })}
+                required
+              />
+            </FormField>
+            <FormField htmlFor="supplierInvoiceRef" label="Supplier reference">
+              <input
+                className="input"
+                id="supplierInvoiceRef"
+                maxLength={160}
+                value={value.supplierInvoiceRef}
+                onChange={(event) => setValue({ ...value, supplierInvoiceRef: event.target.value })}
+              />
+            </FormField>
+            <FormField
+              htmlFor="additionalCharges"
+              label="Additional charges (PKR)"
+              hint="Recorded on the bill; not allocated into inventory cost."
+            >
+              <input
+                className="input"
+                id="additionalCharges"
+                inputMode="decimal"
+                value={value.additionalCharges}
+                onChange={(event) => setValue({ ...value, additionalCharges: event.target.value })}
+              />
+            </FormField>
+            <FormField htmlFor="notes" label="Notes">
+              <textarea
+                className="input min-h-20"
+                id="notes"
+                value={value.notes}
+                onChange={(event) => setValue({ ...value, notes: event.target.value })}
+              />
+            </FormField>
+          </div>
         </section>
         {supplier ? (
           <section className="card grid gap-4 p-5 text-sm sm:grid-cols-3">
@@ -315,14 +333,27 @@ export function PurchaseForm({
                 Remove lot
               </button>
             </div>
-            <div className="space-y-3 p-4">
+            <details className="border-b border-slate-100 px-4 py-3 text-xs text-slate-500">
+              <summary className="cursor-pointer text-indigo-700">
+                Lot notes{lot.notes ? " · added" : ""}
+              </summary>
+              <div className="mt-2">
+                <FormField htmlFor={`lot-notes-${lot.key}`} label="Lot notes">
+                  <input
+                    className="input"
+                    id={`lot-notes-${lot.key}`}
+                    value={lot.notes}
+                    onChange={(event) => updateLot(lotIndex, { notes: event.target.value })}
+                  />
+                </FormField>
+              </div>
+            </details>
+            <div>
+              <InvoiceGridHeading priceLabel="Purchase price (PKR)" />
               {lot.lines.map((line, lineIndex) => {
                 const product = productById.get(line.productId);
                 return (
-                  <div
-                    className="grid gap-3 rounded-lg border border-slate-200 p-3 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]"
-                    key={line.key}
-                  >
+                  <div className="invoice-entry-row" key={line.key}>
                     <div className="text-xs font-semibold text-slate-600">
                       <label htmlFor={`product-${line.key}`}>Product</label>
                       <div className="mt-1">
@@ -341,7 +372,7 @@ export function PurchaseForm({
                       </div>
                     </div>
                     <label className="text-xs font-semibold text-slate-600">
-                      Quantity {product ? `(${product.inventoryUnit.code})` : ""}
+                      <span>Quantity {product ? `(${product.inventoryUnit.code})` : ""}</span>
                       <input
                         className="input mt-1"
                         inputMode="decimal"
@@ -353,7 +384,7 @@ export function PurchaseForm({
                       />
                     </label>
                     <label className="text-xs font-semibold text-slate-600">
-                      Unit purchase price
+                      <span>Unit purchase price (PKR)</span>
                       <input
                         className="input mt-1"
                         inputMode="decimal"
@@ -365,7 +396,7 @@ export function PurchaseForm({
                       />
                     </label>
                     <label className="text-xs font-semibold text-slate-600">
-                      Discount (PKR)
+                      <span>Discount (PKR)</span>
                       <input
                         className="input mt-1"
                         inputMode="decimal"
@@ -379,9 +410,9 @@ export function PurchaseForm({
                       />
                     </label>
                     <div className="text-xs font-semibold text-slate-600">
-                      Amount
+                      <span className="xl:sr-only">Amount (PKR)</span>
                       <div className="mt-1 py-2 text-sm text-slate-900">
-                        PKR {safeNetAmount(line.quantity, line.unitCost, line.lineDiscountAmount)}
+                        {safeNetAmount(line.quantity, line.unitCost, line.lineDiscountAmount)}
                       </div>
                     </div>
                     <button
@@ -396,8 +427,25 @@ export function PurchaseForm({
                     >
                       Remove
                     </button>
+                    <details className="invoice-row-extra text-xs text-slate-500">
+                      <summary className="cursor-pointer text-indigo-700">
+                        Line notes{line.notes ? " · added" : ""}
+                      </summary>
+                      <div className="mt-2">
+                        <FormField htmlFor={`line-notes-${line.key}`} label="Line notes">
+                          <input
+                            className="input"
+                            id={`line-notes-${line.key}`}
+                            value={line.notes}
+                            onChange={(event) =>
+                              updateLine(lotIndex, lineIndex, { notes: event.target.value })
+                            }
+                          />
+                        </FormField>
+                      </div>
+                    </details>
                     {product ? (
-                      <div className="flex flex-wrap gap-4 text-xs text-slate-600 lg:col-span-full">
+                      <div className="invoice-row-extra flex flex-wrap gap-4 text-xs text-slate-600">
                         <span>
                           Current stock: {product.currentStock} {product.inventoryUnit.code}
                         </span>
@@ -418,7 +466,7 @@ export function PurchaseForm({
                 );
               })}
               <button
-                className="btn-secondary"
+                className="btn-secondary m-4"
                 type="button"
                 onClick={() => updateLot(lotIndex, { lines: [...lot.lines, blankLine()] })}
               >
@@ -434,29 +482,31 @@ export function PurchaseForm({
         >
           Add purchase lot
         </button>
-        <section className="card ml-auto max-w-md space-y-2 p-5 text-sm">
-          <div className="flex justify-between">
-            <span>Gross subtotal</span>
-            <strong>PKR {grossSubtotal.toFixed(2)}</strong>
-          </div>
-          <div className="flex justify-between">
-            <span>Discount total</span>
-            <strong>PKR {discountTotal.toFixed(2)}</strong>
-          </div>
-          <div className="flex justify-between">
-            <span>Purchase subtotal</span>
-            <strong>PKR {subtotal.toFixed(2)}</strong>
-          </div>
-          <div className="flex justify-between">
-            <span>Additional charges</span>
-            <strong>PKR {value.additionalCharges || "0"}</strong>
-          </div>
-          <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
-            <span>Net payable</span>
-            <strong>PKR {total.toFixed(2)}</strong>
-          </div>
-        </section>
-        <div className="flex gap-3">
+        <div className="ml-auto w-full sm:max-w-md">
+          <DocumentTotals title="Purchase summary">
+            <div className="flex justify-between">
+              <span>Gross subtotal</span>
+              <strong>PKR {grossSubtotal.toFixed(2)}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span>Discount total</span>
+              <strong>PKR {discountTotal.toFixed(2)}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span>Purchase subtotal</span>
+              <strong>PKR {subtotal.toFixed(2)}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span>Additional charges</span>
+              <strong>PKR {value.additionalCharges || "0"}</strong>
+            </div>
+            <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
+              <span>Net payable</span>
+              <strong>PKR {total.toFixed(2)}</strong>
+            </div>
+          </DocumentTotals>
+        </div>
+        <div className="document-actions card">
           <SubmitButton disabled={!supplier}>Save draft</SubmitButton>
           <Link className="btn-secondary" href="/purchases">
             Cancel

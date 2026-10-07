@@ -10,7 +10,7 @@ import { postInvoiceAction } from "@/modules/sales/actions";
 import { invoiceStatus } from "@/lib/labels";
 import { invoiceSummary } from "@/modules/sales/invoice-summary";
 import { lotLabel } from "@/modules/inventory/queries";
-import { SummaryCards } from "@/components/ui/summary-cards";
+import { DocumentHeading, DocumentTotals } from "@/components/ui/document-layout";
 import { PdfActions } from "@/components/ui/pdf-actions";
 export default async function Page({
   params,
@@ -66,26 +66,57 @@ export default async function Page({
           </>
         )}
       </div>
-      <SummaryCards
-        items={[
-          { label: "Grand Total", value: formatPkr(invoice.totalAmount), tone: "stock" },
-          { label: "Paid", value: formatPkr(summary.paid), tone: "income", direction: "up" },
-          {
-            label: "Return Credits",
-            value: formatPkr(summary.returned),
-            tone: "expense",
-            direction: "down",
-          },
-          { label: "Balance Due", value: formatPkr(summary.balance), tone: "warning" },
-        ]}
-      />
-      <div className="card p-5">
-        <h2 className="font-semibold">Customer</h2>
-        <p>{invoice.customerNameSnapshot}</p>
-        <p>{invoice.customerPhoneSnapshot}</p>
-        <p>{invoice.customerAddressSnapshot}</p>
-      </div>
-      <div className="card overflow-x-auto">
+      <section className="card invoice-document">
+        <DocumentHeading
+          title="Sale invoice"
+          description={`${invoice.invoiceNumber} · ${formatDate(invoice.invoiceDate)}`}
+          aside={
+            <span className="status-badge status-inactive">
+              {invoiceStatus(invoice.status, invoice.paymentStatus, summary.returned.gt(0))}
+            </span>
+          }
+        />
+        <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div>
+            <h2 className="document-eyebrow mb-2">Customer</h2>
+            <p className="text-lg font-semibold">{invoice.customerNameSnapshot}</p>
+            <p className="mt-1 text-sm text-slate-500">{invoice.customerPhoneSnapshot}</p>
+            <p className="text-sm text-slate-500">{invoice.customerAddressSnapshot}</p>
+            {invoice.notes && (
+              <p className="mt-4 whitespace-pre-wrap text-sm text-slate-600">{invoice.notes}</p>
+            )}
+          </div>
+          <DocumentTotals>
+            <p className="flex justify-between gap-3">
+              <span>Subtotal</span>
+              <strong>{formatPkr(invoice.subtotal)}</strong>
+            </p>
+            <p className="flex justify-between gap-3">
+              <span>Invoice discount</span>
+              <strong>{formatPkr(invoice.invoiceDiscountAmount)}</strong>
+            </p>
+            <p className="flex justify-between gap-3 border-t border-indigo-200 pt-3 text-lg font-semibold text-indigo-900">
+              <span>Grand total</span>
+              <strong>{formatPkr(invoice.totalAmount)}</strong>
+            </p>
+            <p className="flex justify-between gap-3 text-emerald-700">
+              <span>Paid</span>
+              <strong>{formatPkr(summary.paid)}</strong>
+            </p>
+            {summary.returned.gt(0) && (
+              <p className="flex justify-between gap-3">
+                <span>Return credits</span>
+                <strong>{formatPkr(summary.returned)}</strong>
+              </p>
+            )}
+            <p className="flex justify-between gap-3 font-semibold">
+              <span>Balance due</span>
+              <strong>{formatPkr(summary.balance)}</strong>
+            </p>
+          </DocumentTotals>
+        </div>
+      </section>
+      <div className="card invoice-document overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>
@@ -113,30 +144,6 @@ export default async function Page({
           </tbody>
         </table>
       </div>
-      <div className="card ml-auto w-full space-y-3 p-6 sm:max-w-md">
-        <p>
-          Subtotal <strong className="float-right">{formatPkr(invoice.subtotal)}</strong>
-        </p>
-        <p>
-          Invoice Discount{" "}
-          <strong className="float-right">{formatPkr(invoice.invoiceDiscountAmount)}</strong>
-        </p>
-        <p className="border-t pt-3 text-lg">
-          Grand Total <strong className="float-right">{formatPkr(invoice.totalAmount)}</strong>
-        </p>
-        <p>
-          Paid <strong className="float-right">{formatPkr(summary.paid)}</strong>
-        </p>
-        {summary.returned.gt(0) && (
-          <p>
-            Return Credits <strong className="float-right">{formatPkr(summary.returned)}</strong>
-          </p>
-        )}
-        <p>
-          Balance Due <strong className="float-right">{formatPkr(summary.balance)}</strong>
-        </p>
-      </div>
-      {invoice.notes && <p className="card p-5">{invoice.notes}</p>}
       {options && (
         <PostInvoiceForm
           action={postInvoiceAction.bind(null, id)}
