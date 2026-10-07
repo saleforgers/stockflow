@@ -10,6 +10,8 @@ import { QuickPartyDialog } from "@/components/quick-party-dialog";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { invoicePreview } from "./preview";
 import { newInvoiceCommand } from "./defaults";
+import { SalesPaymentControls } from "./payment-controls";
+import type { InvoicePaymentType } from "./posting-payment";
 import type { InvoiceDraftCommand } from "./validation";
 import type { PartyOption, QuickPartyAction } from "@/lib/parties/quick-create";
 import { appendParty, withSelectedParty } from "@/lib/parties/selection";
@@ -24,13 +26,6 @@ export function invoicePaymentType(total: Decimal, paid: string) {
     return amount.lt(total) ? "PARTIAL" : "PAID";
   } catch {
     return "PAID";
-  }
-}
-function hasPayment(value: string) {
-  try {
-    return new Decimal(value || 0).gt(0);
-  } catch {
-    return false;
   }
 }
 function hasBalanceDue(total: Decimal.Value, paid: string) {
@@ -141,7 +136,8 @@ export function InvoiceForm({
   quickCreateAction?: QuickPartyAction;
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
-  const [paid, setPaid] = useState("0");
+  const [selectedPaymentType, setSelectedPaymentType] = useState<InvoicePaymentType>("CREDIT");
+  const [partialAmount, setPartialAmount] = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState("");
   const [customerOptions, setCustomerOptions] = useState(customers);
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
@@ -162,47 +158,25 @@ export function InvoiceForm({
   const updateCommand = (update: (current: InvoiceDraftCommand) => InvoiceDraftCommand) => {
     const next = update(command);
     setCommand(next);
-    if (!estimate && customerOptions.some((item) => item.id === next.customerId && item.isWalkIn)) {
-      setPaid(invoicePreview(next, products, "0").total);
-    }
   };
-  const preview = invoicePreview(command, products, paid);
+  const totals = invoicePreview(command, products, "0");
   const changeLine = (index: number, key: string, value: string) =>
     updateCommand((c) => ({
       ...c,
       lines: c.lines.map((l, i) => (i === index ? { ...l, [key]: value } : l)),
     }));
   const customer = customerOptions.find((item) => item.id === command.customerId);
-  const subtotal = command.lines.reduce((sum, line) => {
-    try {
-      return sum.plus(
-        Decimal.max(
-          new Decimal(line.quantity || 0)
-            .times(line.unitPrice || 0)
-            .toDecimalPlaces(2)
-            .minus(line.lineDiscountAmount || 0),
-          0,
-        ),
-      );
-    } catch {
-      return sum;
-    }
-  }, new Decimal(0));
-  let invoiceTotal = subtotal;
-  try {
-    invoiceTotal = Decimal.max(subtotal.minus(command.invoiceDiscountAmount || 0), 0);
-  } catch {
-    /* server validates */
-  }
+  const invoiceTotal = new Decimal(totals.total);
   const isWalkIn = customer?.isWalkIn ?? false;
+  const paymentType = isWalkIn || invoiceTotal.isZero() ? "PAID" : selectedPaymentType;
+  const paid =
+    paymentType === "PAID" ? totals.total : paymentType === "CREDIT" ? "0.00" : partialAmount;
+  const preview = invoicePreview(command, products, paid);
   return (
     <>
       <form action={formAction} className="card space-y-5 p-6">
         <FormMessage result={state} />
         <input type="hidden" name="payload" value={JSON.stringify(command)} />
-        {!estimate && (
-          <input type="hidden" name="paymentType" value={invoicePaymentType(invoiceTotal, paid)} />
-        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block space-y-1 text-sm font-medium">
             Customer
@@ -328,15 +302,17 @@ export function InvoiceForm({
             />
             {!estimate && (
               <>
-                <Select
-                  label={isWalkIn ? "Payment Method" : "Payment Method (leave empty for Credit)"}
-                  name="paymentMethodId"
-                  options={methods}
-                  value={paymentMethodId}
-                  onChange={setPaymentMethodId}
-                  required={isWalkIn || hasPayment(paid)}
+                <SalesPaymentControls
+                  paymentType={paymentType}
+                  onPaymentTypeChange={setSelectedPaymentType}
+                  amount={paid}
+                  onAmountChange={setPartialAmount}
+                  methodId={paymentMethodId}
+                  onMethodChange={setPaymentMethodId}
+                  methods={methods}
+                  total={totals.total}
+                  walkIn={isWalkIn}
                 />
-                <Field label="Paid Now (PKR)" name="amount" value={paid} onChange={setPaid} />
                 {isWalkIn && hasBalanceDue(invoiceTotal, paid) && (
                   <p className="alert-error" role="alert">
                     Walk-in sales must be fully paid. Select or create a named customer for
@@ -380,7 +356,7 @@ export function InvoiceForm({
         </div>
         {preview.error && <p className="text-sm text-red-700">{preview.error}</p>}
         <div className="flex gap-3">
-          <SubmitButton disabled={!customer} name="intent" value="draft">
+          <SubmitButton disabled={!customer} name="intent" value="draft" formNoValidate>
             Save Draft
           </SubmitButton>
           {!estimate && (
@@ -426,9 +402,12 @@ export function PostInvoiceForm({
   total: string;
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
-  const [amount, setAmount] = useState(walkIn ? total : "0");
+  const [selectedPaymentType, setSelectedPaymentType] = useState<InvoicePaymentType>("CREDIT");
+  const [partialAmount, setPartialAmount] = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState("");
   const totalAmount = new Decimal(total);
+  const paymentType = walkIn || totalAmount.isZero() ? "PAID" : selectedPaymentType;
+  const amount = paymentType === "PAID" ? total : paymentType === "CREDIT" ? "0.00" : partialAmount;
   return (
     <form
       action={formAction}
@@ -439,26 +418,16 @@ export function PostInvoiceForm({
       }}
     >
       <FormMessage result={state} />
-      <input type="hidden" name="paymentType" value={invoicePaymentType(totalAmount, amount)} />
-      <p>
-        {walkIn
-          ? "Full payment is required for this walk-in invoice."
-          : "Optional receipt at posting. Leave amount empty for a credit invoice."}
-      </p>
-      <Select
-        label="Receipt method"
-        name="paymentMethodId"
-        options={methods}
-        value={paymentMethodId}
-        onChange={setPaymentMethodId}
-        required={walkIn || hasPayment(amount)}
-      />
-      <Field
-        label="Receipt amount (PKR)"
-        name="amount"
-        value={amount}
-        onChange={setAmount}
-        required={walkIn}
+      <SalesPaymentControls
+        paymentType={paymentType}
+        onPaymentTypeChange={setSelectedPaymentType}
+        amount={amount}
+        onAmountChange={setPartialAmount}
+        methodId={paymentMethodId}
+        onMethodChange={setPaymentMethodId}
+        methods={methods}
+        total={total}
+        walkIn={walkIn}
       />
       {walkIn && hasBalanceDue(total, amount) && (
         <p className="alert-error" role="alert">

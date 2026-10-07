@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { INITIAL_ACTION_RESULT } from "@/lib/actions/action-result";
 
-import { InvoiceForm, invoicePaymentType } from "./forms";
+import { InvoiceForm, invoicePaymentType, PostInvoiceForm } from "./forms";
 
 describe("sales invoice payment controls", () => {
   it("classifies credit, partial, and paid amounts explicitly", () => {
@@ -62,6 +62,25 @@ describe("sales invoice payment controls", () => {
 
     expect(html.match(/Save Draft/g)).toHaveLength(1);
     expect(html.match(/Finalize Invoice/g)).toHaveLength(1);
-    expect(html).toContain('name="paymentType" value="CREDIT"');
+    expect(html).toContain('name="paymentType"');
+    expect(html).toContain('<option value="CREDIT" selected="">Credit</option>');
+    expect(html).toContain('<option value="PAID">Paid</option>');
+    expect(html).toContain('<option value="PARTIAL">Partial payment</option>');
+    expect(html).toContain('formNoValidate=""');
+  });
+
+  it("forces full payment for a walk-in draft without permitting credit selection", () => {
+    const html = renderToStaticMarkup(
+      createElement(PostInvoiceForm, {
+        action: async () => INITIAL_ACTION_RESULT,
+        methods: [{ id: "00000000-0000-4000-8000-000000000030", name: "Cash" }],
+        total: "125.50",
+        walkIn: true,
+      }),
+    );
+    expect(html).toContain('name="paymentType" value="PAID"');
+    expect(html).toContain('name="amount" value="125.50"');
+    expect(html).toContain('disabled=""');
+    expect(html).toContain('name="paymentMethodId" required=""');
   });
 });

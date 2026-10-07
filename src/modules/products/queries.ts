@@ -98,7 +98,7 @@ export async function getProductHistory(id: string) {
       include: { inventoryUnit: true },
     }),
     prisma.stockMovement.findMany({
-      where: { productId: id },
+      where: { productId: id, location: { isDefault: true } },
       include: {
         inventoryLot: { include: { purchaseLot: { select: { lotNumber: true } } } },
         createdBy: { select: { name: true } },
@@ -116,7 +116,8 @@ export async function getProductHistory(id: string) {
         },
         adjustmentLine: { include: { stockAdjustment: { select: { adjustmentNumber: true } } } },
       },
-      orderBy: [{ occurredAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+      // Match the stock audit: business/receiving dates do not reorder recorded effects.
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     }),
   ]);
   if (!product) return null;

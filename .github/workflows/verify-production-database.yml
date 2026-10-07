@@ -1,4 +1,4 @@
-name: Deploy production database migrations
+name: Verify production database readiness
 
 on:
   workflow_dispatch:
@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  migrate:
-    name: Apply reviewed Prisma migrations
+  verify:
+    name: Read-only production schema verification
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -20,21 +20,12 @@ jobs:
     steps:
       - name: Check out reviewed source
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-
       - name: Install locked dependencies
         run: npm ci
-
-      - name: Validate Prisma schema
-        run: npm run prisma:validate
-
-      - name: Apply committed migrations
-        run: npm run db:migrate:deploy
-
       - name: Verify release schema and migration checksums
         run: npx tsx scripts/verify-release-readiness.ts

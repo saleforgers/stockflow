@@ -5,5 +5,12 @@ import nextTypeScript from "eslint-config-next/typescript";
 export default defineConfig([
   ...nextVitals,
   ...nextTypeScript,
-  globalIgnores([".next/**", "coverage/**", "src/generated/prisma/**", "public/pdfjs/**"]),
+  globalIgnores([
+    ".next/**",
+    "coverage/**",
+    "src/generated/prisma/**",
+    "public/pdfjs/**",
+    "tmp/**",
+    "output/**",
+  ]),
 ]);

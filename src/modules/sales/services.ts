@@ -12,6 +12,7 @@ import { normalizeOptionalText } from "@/lib/validation/normalization";
 import { nonnegativeMoney, positiveMoney, paymentStatus } from "@/modules/purchases/calculations";
 import { fifoPlan, returnCredit, saleLine } from "./calculations";
 import { salesTransaction } from "./transaction";
+import { parseInvoicePostingPayment, type InvoicePostingPayment } from "./posting-payment";
 import {
   invoiceDraftSchema,
   receiptSchema,
@@ -235,10 +236,11 @@ export async function recordCustomerReceipt(input: ReceiptCommand, actor: Author
 export async function postInvoice(
   id: string,
   actor: AuthorizedUser,
-  payment?: { paymentType: "PAID" | "PARTIAL"; paymentMethodId: string; amount: string },
+  paymentInput?: InvoicePostingPayment,
 ) {
   assertOperationalWriter(actor);
   id = parseIdentifier(id, "Invoice");
+  const payment = paymentInput ? parseInvoicePostingPayment(paymentInput) : undefined;
   return salesTransaction(async (tx) => {
     await lockInvoice(tx, id);
     const invoice = await tx.salesInvoice.findUnique({
@@ -267,7 +269,7 @@ export async function postInvoice(
         "Invoice customer, location or lines are invalid",
       );
     if (payment) {
-      const paidNow = positiveMoney(payment.amount, "Receipt");
+      const paidNow = nonnegativeMoney(payment.amount, "Receipt");
       const total = decimal(invoice.totalAmount);
       if (paidNow.greaterThan(total))
         throw new ApplicationError("VALIDATION_ERROR", "Receipt cannot exceed the invoice total");
@@ -423,7 +425,7 @@ export async function postInvoice(
         customerAddressSnapshot: invoice.customer.address,
       },
     });
-    if (payment)
+    if (payment && decimal(payment.amount).gt(0))
       await receipt(
         tx,
         {

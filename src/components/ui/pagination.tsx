@@ -39,25 +39,31 @@ export function Pagination({
       </span>
       <div className="flex gap-2">
         {hasPrev ? (
-          <Link
-            className="btn-secondary"
-            href={href(page - 1)}
-            aria-label="Previous page"
-          >
-            <svg className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
+          <Link className="btn-secondary" href={href(page - 1)} aria-label="Previous page">
+            <svg
+              className="size-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.5}
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
             Previous
           </Link>
         ) : null}
         {hasNext ? (
-          <Link
-            className="btn-secondary"
-            href={href(page + 1)}
-            aria-label="Next page"
-          >
+          <Link className="btn-secondary" href={href(page + 1)} aria-label="Next page">
             Next
-            <svg className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
+            <svg
+              className="size-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.5}
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </Link>

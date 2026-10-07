@@ -13,7 +13,9 @@ export default defineConfig({
     include: ["tests/integration/**/*.integration.test.ts"],
     setupFiles: ["./tests/integration/setup.ts"],
     fileParallelism: false,
-    testTimeout: 30_000,
+    // Multi-command acceptance cases use the remote Supabase database. Individual
+    // posting transactions keep their own stricter application timeouts.
+    testTimeout: 90_000,
     hookTimeout: 30_000,
   },
 });

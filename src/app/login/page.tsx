@@ -18,10 +18,7 @@ export default async function LoginPage() {
       }}
     >
       {/* Background decorative orbs */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 overflow-hidden"
-      >
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
           className="absolute -top-40 -right-40 size-[500px] rounded-full opacity-20"
           style={{ background: "radial-gradient(circle, #6366f1, transparent 70%)" }}
@@ -40,7 +37,12 @@ export default async function LoginPage() {
             className="mb-4 flex size-14 items-center justify-center rounded-2xl shadow-xl"
             style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
           >
-            <svg className="size-7 text-white" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <svg
+              className="size-7 text-white"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+              aria-hidden="true"
+            >
               <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
             </svg>
           </div>

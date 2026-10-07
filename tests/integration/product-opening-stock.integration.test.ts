@@ -7,7 +7,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { seedFoundationData } from "../../prisma/seed-data";
 import { PrismaClient } from "../../src/generated/prisma/client";
 import type { AuthorizedUser } from "../../src/lib/auth/authorization";
-import { listProducts } from "../../src/modules/products/queries";
+import { getProductHistory, listProducts } from "../../src/modules/products/queries";
+import { createPurchaseDraft, postPurchase } from "../../src/modules/purchases/services";
+import { createInvoiceDraft, postInvoice } from "../../src/modules/sales/services";
 import { createProduct, updateProduct } from "../../src/modules/products/services";
 import type { ProductCommand } from "../../src/modules/products/validation";
 
@@ -136,5 +138,47 @@ describe("product opening stock", () => {
       updateProduct(product.id, { ...original, openingStockQuantity: "3" }, actor),
     ).rejects.toThrow("Use Adjust Stock instead");
     expect(await db.stockMovement.count({ where: { productId: product.id } })).toBe(0);
+  });
+
+  it("keeps item history in recorded order when the purchase receipt is future-dated", async () => {
+    const product = await createProduct(command(), actor);
+    const supplier = await db.supplier.create({ data: { name: marker } });
+    const customer = await db.customer.create({ data: { name: marker } });
+    const purchase = await createPurchaseDraft(
+      {
+        supplierId: supplier.id,
+        purchaseDate: "2026-10-08",
+        additionalCharges: "0",
+        lots: [
+          {
+            receivedAt: "2030-01-01T00:00:00Z",
+            lines: [
+              { productId: product.id, quantity: "5", unitCost: "25.50", lineDiscountAmount: "0" },
+            ],
+          },
+        ],
+      },
+      actor,
+    );
+    await postPurchase(purchase.id, actor);
+    const invoice = await createInvoiceDraft(
+      {
+        requestKey: randomUUID(),
+        customerId: customer.id,
+        invoiceDate: "2026-10-08",
+        invoiceDiscountAmount: "0",
+        lines: [{ productId: product.id, quantity: "1", unitPrice: "40", lineDiscountAmount: "0" }],
+      },
+      actor,
+    );
+    await postInvoice(invoice.id, actor);
+    const result = await getProductHistory(product.id);
+    expect(
+      result?.history.map((movement) => [movement.direction, movement.runningQuantity]),
+    ).toEqual([
+      ["IN", "5"],
+      ["OUT", "4"],
+    ]);
+    expect(result?.currentStock).toBe("4");
   });
 });
