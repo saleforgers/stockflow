@@ -11,8 +11,54 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  acceptance:
+    name: Disposable database release acceptance
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: stockflow
+          POSTGRES_PASSWORD: disposable-test-only
+          POSTGRES_DB: stockflow_acceptance
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U stockflow -d stockflow_acceptance"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://stockflow:disposable-test-only@localhost:5432/stockflow_acceptance
+      DIRECT_URL: postgresql://stockflow:disposable-test-only@localhost:5432/stockflow_acceptance
+      STOCKFLOW_DATABASE_TARGET: development-disposable
+      AUTH_SECRET: disposable-release-acceptance-secret-minimum-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Create Supabase API roles in the isolated test database
+        run: >-
+          node --input-type=module -e
+          "import pg from 'pg'; const c=new pg.Client({connectionString:process.env.DIRECT_URL});
+          await c.connect(); await c.query('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role'); await c.end();"
+      - run: npm run prisma:validate
+      - run: npm run db:migrate:deploy
+      - run: npx tsx scripts/verify-release-readiness.ts
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Accept posting, concurrency, dates, returns and audit fixes
+        run: >-
+          npm run test:integration --
+          tests/integration/sales.integration.test.ts
+          tests/integration/inventory-demo.integration.test.ts
+          tests/integration/product-opening-stock.integration.test.ts
+          tests/integration/movement-balances.integration.test.ts
+          tests/integration/purchase-audit-fixes.integration.test.ts
   verify:
-    name: Read-only production schema verification
+    name: Read-only production migration preflight
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -27,5 +73,5 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
-      - name: Verify release schema and migration checksums
-        run: npx tsx scripts/verify-release-readiness.ts
+      - name: Check production identity, applied checksums and supplier reference duplicates
+        run: node scripts/preflight-release-database.mjs

@@ -16,10 +16,17 @@ export function UnitForm({
   unit?: { code: string; name: string; decimalScale: number };
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const fieldErrors = state.ok ? {} : (state.fieldErrors ?? {});
   return (
     <form action={formAction} className="card max-w-2xl space-y-5 p-6">
       <FormMessage result={state} />
-      <FormField htmlFor="code" label="Code" hint="Codes are normalized to uppercase." required>
+      <FormField
+        htmlFor="code"
+        error={fieldErrors["code"]?.[0]}
+        label="Code"
+        hint="Codes are normalized to uppercase."
+        required
+      >
         <input
           className="input"
           defaultValue={unit?.code}
@@ -29,7 +36,7 @@ export function UnitForm({
           required
         />
       </FormField>
-      <FormField htmlFor="name" label="Name" required>
+      <FormField htmlFor="name" error={fieldErrors["name"]?.[0]} label="Name" required>
         <input
           className="input"
           defaultValue={unit?.name}
@@ -41,6 +48,7 @@ export function UnitForm({
       </FormField>
       <FormField
         htmlFor="decimalScale"
+        error={fieldErrors["decimalScale"]?.[0]}
         label="Allowed decimal places"
         hint="0 for indivisible units; up to 4 for measured quantities."
         required

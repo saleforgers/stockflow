@@ -32,6 +32,7 @@ export function SupplierPaymentForm({
   initialSupplierId?: string;
 }) {
   const [result, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const fieldErrors = result.ok ? {} : (result.fieldErrors ?? {});
   const [supplierId, setSupplierId] = useState(initialSupplierId);
   const [amount, setAmount] = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState("");
@@ -76,7 +77,12 @@ export function SupplierPaymentForm({
       <input name="payload" type="hidden" value={JSON.stringify(payload)} />
       <FormMessage result={result} />
       <section className="card grid gap-5 p-6 sm:grid-cols-2">
-        <FormField htmlFor="supplier" label="Supplier" required>
+        <FormField
+          htmlFor="supplier"
+          error={fieldErrors["supplierId"]?.[0]}
+          label="Supplier"
+          required
+        >
           <select
             className="input"
             id="supplier"
@@ -95,7 +101,12 @@ export function SupplierPaymentForm({
             ))}
           </select>
         </FormField>
-        <FormField htmlFor="method" label="Payment method" required>
+        <FormField
+          htmlFor="method"
+          error={fieldErrors["paymentMethodId"]?.[0]}
+          label="Payment method"
+          required
+        >
           <select
             className="input"
             id="method"
@@ -111,7 +122,12 @@ export function SupplierPaymentForm({
             ))}
           </select>
         </FormField>
-        <FormField htmlFor="amount" label="Amount (PKR)" required>
+        <FormField
+          htmlFor="amount"
+          error={fieldErrors["amount"]?.[0]}
+          label="Amount (PKR)"
+          required
+        >
           <input
             className="input"
             id="amount"
@@ -121,7 +137,12 @@ export function SupplierPaymentForm({
             required
           />
         </FormField>
-        <FormField htmlFor="date" label="Payment date" required>
+        <FormField
+          htmlFor="date"
+          error={fieldErrors["paymentDate"]?.[0]}
+          label="Payment date"
+          required
+        >
           <input
             className="input"
             id="date"
@@ -131,7 +152,7 @@ export function SupplierPaymentForm({
             required
           />
         </FormField>
-        <FormField htmlFor="reference" label="Reference">
+        <FormField htmlFor="reference" error={fieldErrors["reference"]?.[0]} label="Reference">
           <input
             className="input"
             id="reference"
@@ -139,7 +160,7 @@ export function SupplierPaymentForm({
             onChange={(event) => setReference(event.target.value)}
           />
         </FormField>
-        <FormField htmlFor="notes" label="Notes">
+        <FormField htmlFor="notes" error={fieldErrors["notes"]?.[0]} label="Notes">
           <textarea
             className="input min-h-20"
             id="notes"

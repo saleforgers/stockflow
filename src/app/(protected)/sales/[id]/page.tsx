@@ -12,6 +12,17 @@ import { invoiceSummary } from "@/modules/sales/invoice-summary";
 import { lotLabel } from "@/modules/inventory/queries";
 import { DocumentHeading, DocumentTotals } from "@/components/ui/document-layout";
 import { PdfActions } from "@/components/ui/pdf-actions";
+
+function invoiceBadgeClass(status: string, paymentStatus: string, hasReturn: boolean): string {
+  if (status === "DRAFT") return "status-badge status-inactive";
+  if (paymentStatus === "PAID" && !hasReturn) return "status-badge status-active";
+  if (paymentStatus === "PAID" && hasReturn)
+    return "status-badge border border-indigo-200 bg-indigo-50 text-indigo-700";
+  if (paymentStatus === "PARTIALLY_PAID")
+    return "status-badge border border-amber-200 bg-amber-50 text-amber-800";
+  return "status-badge border border-blue-200 bg-blue-50 text-blue-700";
+}
+
 export default async function Page({
   params,
   searchParams,
@@ -71,7 +82,13 @@ export default async function Page({
           title="Sale invoice"
           description={`${invoice.invoiceNumber} · ${formatDate(invoice.invoiceDate)}`}
           aside={
-            <span className="status-badge status-inactive">
+            <span
+              className={invoiceBadgeClass(
+                invoice.status,
+                invoice.paymentStatus,
+                summary.returned.gt(0),
+              )}
+            >
               {invoiceStatus(invoice.status, invoice.paymentStatus, summary.returned.gt(0))}
             </span>
           }

@@ -2,6 +2,11 @@ name: Deploy production database migrations
 
 on:
   workflow_dispatch:
+    inputs:
+      backup_public_key:
+        description: Base64 RSA public key for the encrypted pre-migration backup
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -32,6 +37,27 @@ jobs:
 
       - name: Validate Prisma schema
         run: npm run prisma:validate
+
+      - name: Read-only migration preflight
+        run: node scripts/preflight-release-database.mjs
+
+      - name: Back up public schema and data with encryption
+        env:
+          BACKUP_PUBLIC_KEY: ${{ inputs.backup_public_key }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-backup
+          docker run --rm -e DIRECT_URL postgres:17 sh -c 'exec pg_dump "$DIRECT_URL" --schema=public --no-owner --no-acl --format=custom' |
+            node scripts/encrypt-release-backup.mjs release-backup/public-schema.dump.encrypted
+
+      - name: Preserve encrypted backup before migration
+        uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-pre-migration-backup
+          path: release-backup/public-schema.dump.encrypted
+          retention-days: 7
+          if-no-files-found: error
 
       - name: Apply committed migrations
         run: npm run db:migrate:deploy

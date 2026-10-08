@@ -30,7 +30,8 @@ export default async function Page() {
         requestKey={randomUUID()}
         products={products.map((p) => ({
           id: p.id,
-          name: `${p.name} · ${p.sku}`,
+          name: p.name,
+          sku: p.sku,
           unit: p.inventoryUnit.code,
           quantity: stock
             .filter((s) => s.productId === p.id)

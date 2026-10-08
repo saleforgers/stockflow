@@ -170,7 +170,7 @@ export async function adjustStock(input: AdjustmentCommand, actor: AuthorizedUse
           movementType,
           quantity: line.quantity,
           unitCostSnapshot: item.lot.unitCost,
-          occurredAt: new Date(),
+          occurredAt: date,
           reason: c.reason,
           notes: c.notes || null,
           adjustmentLineId: line.id,

@@ -106,6 +106,7 @@ export function PurchaseForm({
   quickCreateAction?: QuickPartyAction;
 }) {
   const [result, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const fieldErrors = result.ok ? {} : (result.fieldErrors ?? {});
   const [value, setValue] = useState<PurchaseFormValue>(
     initial ?? {
       supplierId: "",
@@ -215,7 +216,12 @@ export function PurchaseForm({
             aside={<span className="status-badge status-inactive">Draft entry</span>}
           />
           <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
-            <FormField htmlFor="supplier" label="Supplier" required>
+            <FormField
+              htmlFor="supplier"
+              error={fieldErrors["supplierId"]?.[0]}
+              label="Supplier"
+              required
+            >
               <PartySelector
                 addLabel="Add New Supplier"
                 allLabel="All Suppliers"
@@ -230,7 +236,12 @@ export function PurchaseForm({
                 }
               />
             </FormField>
-            <FormField htmlFor="purchaseDate" label="Purchase / bill date" required>
+            <FormField
+              htmlFor="purchaseDate"
+              error={fieldErrors["purchaseDate"]?.[0]}
+              label="Purchase / bill date"
+              required
+            >
               <input
                 className="input"
                 id="purchaseDate"
@@ -240,7 +251,11 @@ export function PurchaseForm({
                 required
               />
             </FormField>
-            <FormField htmlFor="supplierInvoiceRef" label="Supplier reference">
+            <FormField
+              htmlFor="supplierInvoiceRef"
+              error={fieldErrors["supplierInvoiceRef"]?.[0]}
+              label="Supplier reference"
+            >
               <input
                 className="input"
                 id="supplierInvoiceRef"
@@ -251,6 +266,7 @@ export function PurchaseForm({
             </FormField>
             <FormField
               htmlFor="additionalCharges"
+              error={fieldErrors["additionalCharges"]?.[0]}
               label="Additional charges (PKR)"
               hint="Recorded on the bill; not allocated into inventory cost."
             >
@@ -262,7 +278,7 @@ export function PurchaseForm({
                 onChange={(event) => setValue({ ...value, additionalCharges: event.target.value })}
               />
             </FormField>
-            <FormField htmlFor="notes" label="Notes">
+            <FormField htmlFor="notes" error={fieldErrors["notes"]?.[0]} label="Notes">
               <textarea
                 className="input min-h-20"
                 id="notes"
@@ -539,6 +555,7 @@ export function PostPurchaseForm({
   total: string;
 }) {
   const [result, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const fieldErrors = result.ok ? {} : (result.fieldErrors ?? {});
   const [paymentType, setPaymentType] = useState<"PAID" | "CREDIT" | "PARTIAL">("CREDIT");
   const [amount, setAmount] = useState("0");
   let remaining = total;
@@ -569,7 +586,12 @@ export function PostPurchaseForm({
         payment is recorded atomically.
       </p>
       <FormMessage result={result} />
-      <FormField htmlFor="purchase-payment-type" label="Purchase payment status" required>
+      <FormField
+        htmlFor="purchase-payment-type"
+        error={fieldErrors["paymentType"]?.[0]}
+        label="Purchase payment status"
+        required
+      >
         <select
           id="purchase-payment-type"
           name="paymentType"
@@ -590,7 +612,12 @@ export function PostPurchaseForm({
       </FormField>
       {paymentType !== "CREDIT" ? (
         <>
-          <FormField htmlFor="purchase-payment-method" label="Payment method" required>
+          <FormField
+            htmlFor="purchase-payment-method"
+            error={fieldErrors["paymentMethodId"]?.[0]}
+            label="Payment method"
+            required
+          >
             <select id="purchase-payment-method" name="paymentMethodId" className="input" required>
               <option value="">Select payment method</option>
               {methods.map((method) => (
@@ -600,7 +627,12 @@ export function PostPurchaseForm({
               ))}
             </select>
           </FormField>
-          <FormField htmlFor="purchase-paid-now" label="Amount paid (PKR)" required>
+          <FormField
+            htmlFor="purchase-paid-now"
+            error={fieldErrors["amount"]?.[0]}
+            label="Amount paid (PKR)"
+            required
+          >
             <input
               id="purchase-paid-now"
               name="amount"

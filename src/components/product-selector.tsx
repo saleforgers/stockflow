@@ -110,6 +110,12 @@ export function ProductSelector({
           placeholder="Search by product name or SKU"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (matches.length === 1) select(matches[0]!);
+            }
+          }}
         />
         <div className="max-h-72 overflow-y-auto">
           {matches.map((product) => (

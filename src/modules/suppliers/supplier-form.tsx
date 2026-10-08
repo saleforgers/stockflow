@@ -22,11 +22,12 @@ export function SupplierForm({
   supplier?: SupplierValue;
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const fieldErrors = state.ok ? {} : (state.fieldErrors ?? {});
   return (
     <form action={formAction} className="card max-w-3xl space-y-5 p-6">
       <FormMessage result={state} />
       <div className="grid gap-5 sm:grid-cols-2">
-        <FormField htmlFor="name" label="Supplier name" required>
+        <FormField htmlFor="name" error={fieldErrors["name"]?.[0]} label="Supplier name" required>
           <input
             className="input"
             defaultValue={supplier?.name}
@@ -36,7 +37,11 @@ export function SupplierForm({
             required
           />
         </FormField>
-        <FormField htmlFor="contactPerson" label="Contact person">
+        <FormField
+          htmlFor="contactPerson"
+          error={fieldErrors["contactPerson"]?.[0]}
+          label="Contact person"
+        >
           <input
             className="input"
             defaultValue={supplier?.contactPerson ?? ""}
@@ -45,7 +50,7 @@ export function SupplierForm({
             name="contactPerson"
           />
         </FormField>
-        <FormField htmlFor="phone" label="Phone">
+        <FormField htmlFor="phone" error={fieldErrors["phone"]?.[0]} label="Phone">
           <input
             className="input"
             defaultValue={supplier?.phone ?? ""}
@@ -54,7 +59,7 @@ export function SupplierForm({
             name="phone"
           />
         </FormField>
-        <FormField htmlFor="email" label="Email">
+        <FormField htmlFor="email" error={fieldErrors["email"]?.[0]} label="Email">
           <input
             className="input"
             defaultValue={supplier?.email ?? ""}
@@ -65,7 +70,7 @@ export function SupplierForm({
           />
         </FormField>
       </div>
-      <FormField htmlFor="address" label="Address">
+      <FormField htmlFor="address" error={fieldErrors["address"]?.[0]} label="Address">
         <textarea
           className="input min-h-24"
           defaultValue={supplier?.address ?? ""}
@@ -74,7 +79,7 @@ export function SupplierForm({
           name="address"
         />
       </FormField>
-      <FormField htmlFor="notes" label="Notes">
+      <FormField htmlFor="notes" error={fieldErrors["notes"]?.[0]} label="Notes">
         <textarea
           className="input min-h-24"
           defaultValue={supplier?.notes ?? ""}

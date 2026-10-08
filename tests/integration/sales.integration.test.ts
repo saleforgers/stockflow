@@ -106,6 +106,11 @@ describe("Phase 3 sales acceptance (append-only disposable fixtures)", () => {
     ]);
     expect(allocations.every((a) => a.stockMovement?.quantity.equals(a.quantity))).toBe(true);
     expect(
+      allocations.every(
+        (a) => a.stockMovement?.occurredAt.toISOString() === `${date}T00:00:00.000Z`,
+      ),
+    ).toBe(true);
+    expect(
       (await db.salesInvoice.findUniqueOrThrow({ where: { id: draft.id } })).paymentStatus,
     ).toBe("UNPAID");
     expect(await db.customerLedgerEntry.count({ where: { salesInvoiceId: draft.id } })).toBe(1);
@@ -282,6 +287,7 @@ describe("Phase 3 sales acceptance (append-only disposable fixtures)", () => {
     expect(allocation.unitCostSnapshot.toString()).toBe("10.125");
     expect(allocation.inventoryLot.availableQuantity.toString()).toBe("2");
     expect(allocation.stockMovement?.direction).toBe("IN");
+    expect(allocation.stockMovement?.occurredAt.toISOString()).toBe(`${date}T00:00:00.000Z`);
     await expect(postSaleReturn({ ...command, requestKey: randomUUID() }, actor)).rejects.toThrow(
       "remaining",
     );

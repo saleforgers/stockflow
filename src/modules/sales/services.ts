@@ -389,7 +389,7 @@ export async function postInvoice(
             quantity: item.quantity.toFixed(),
             unitCostSnapshot: item.lot.unitCost,
             saleLotAllocationId: allocation.id,
-            occurredAt: new Date(),
+            occurredAt: invoice.invoiceDate,
             createdById: actor.id,
           },
         });
@@ -652,7 +652,7 @@ export async function postSaleReturn(input: SaleReturnCommand, actor: Authorized
             quantity: item.quantity.toFixed(),
             unitCostSnapshot: item.lot.unitCostSnapshot,
             saleReturnAllocationId: allocation.id,
-            occurredAt: new Date(),
+            occurredAt: returned.returnDate,
             reason: c.reason,
             createdById: actor.id,
           },

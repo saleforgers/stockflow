@@ -29,6 +29,7 @@ export function PurchaseReturnForm({
   }>;
 }) {
   const [result, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const fieldErrors = result.ok ? {} : (result.fieldErrors ?? {});
   const [returnDate, setReturnDate] = useState(defaultDate);
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
@@ -60,7 +61,12 @@ export function PurchaseReturnForm({
           </div>
           <div className="mt-1 font-semibold">{purchaseNumber}</div>
         </div>
-        <FormField htmlFor="returnDate" label="Return date" required>
+        <FormField
+          htmlFor="returnDate"
+          error={fieldErrors["returnDate"]?.[0]}
+          label="Return date"
+          required
+        >
           <input
             className="input"
             id="returnDate"
@@ -70,7 +76,7 @@ export function PurchaseReturnForm({
             required
           />
         </FormField>
-        <FormField htmlFor="reason" label="Reason" required>
+        <FormField htmlFor="reason" error={fieldErrors["reason"]?.[0]} label="Reason" required>
           <input
             className="input"
             id="reason"
@@ -80,7 +86,7 @@ export function PurchaseReturnForm({
             required
           />
         </FormField>
-        <FormField htmlFor="notes" label="Notes">
+        <FormField htmlFor="notes" error={fieldErrors["notes"]?.[0]} label="Notes">
           <textarea
             className="input min-h-20"
             id="notes"

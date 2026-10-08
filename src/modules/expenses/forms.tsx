@@ -25,6 +25,7 @@ export function ExpenseForm({
   paymentMethods: Option[];
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const fieldErrors = state.ok ? {} : (state.fieldErrors ?? {});
   return (
     <form
       action={formAction}
@@ -41,7 +42,12 @@ export function ExpenseForm({
           <FormMessage result={state} />
           <input name="requestKey" type="hidden" value={requestKey} />
           <div className="grid gap-5 sm:grid-cols-2">
-            <FormField htmlFor="expenseDate" label="Expense Date" required>
+            <FormField
+              htmlFor="expenseDate"
+              error={fieldErrors["expenseDate"]?.[0]}
+              label="Expense Date"
+              required
+            >
               <input
                 className="input"
                 defaultValue={date}
@@ -51,7 +57,12 @@ export function ExpenseForm({
                 type="date"
               />
             </FormField>
-            <FormField htmlFor="expenseCategoryId" label="Category" required>
+            <FormField
+              htmlFor="expenseCategoryId"
+              error={fieldErrors["expenseCategoryId"]?.[0]}
+              label="Category"
+              required
+            >
               <select
                 className="input"
                 id="expenseCategoryId"
@@ -70,24 +81,34 @@ export function ExpenseForm({
               </select>
             </FormField>
           </div>
-          <FormField htmlFor="description" label="Description" required>
+          <FormField
+            htmlFor="description"
+            error={fieldErrors["description"]?.[0]}
+            label="Description"
+            required
+          >
             <input className="input" id="description" maxLength={500} name="description" required />
           </FormField>
           <div className="grid gap-5 sm:grid-cols-2">
-            <FormField htmlFor="payeeName" label="Paid To">
+            <FormField htmlFor="payeeName" error={fieldErrors["payeeName"]?.[0]} label="Paid To">
               <input className="input" id="payeeName" maxLength={200} name="payeeName" />
             </FormField>
-            <FormField htmlFor="reference" label="Reference">
+            <FormField htmlFor="reference" error={fieldErrors["reference"]?.[0]} label="Reference">
               <input className="input" id="reference" maxLength={200} name="reference" />
             </FormField>
           </div>
-          <FormField htmlFor="notes" label="Notes">
+          <FormField htmlFor="notes" error={fieldErrors["notes"]?.[0]} label="Notes">
             <textarea className="input min-h-28" id="notes" maxLength={2000} name="notes" />
           </FormField>
         </div>
         <aside className="document-totals self-start space-y-5">
           <h2 className="document-eyebrow">Expense amount</h2>
-          <FormField htmlFor="amount" label="Amount (PKR)" required>
+          <FormField
+            htmlFor="amount"
+            error={fieldErrors["amount"]?.[0]}
+            label="Amount (PKR)"
+            required
+          >
             <input
               className="input text-2xl font-semibold tabular-nums"
               id="amount"
@@ -99,7 +120,12 @@ export function ExpenseForm({
               step="0.01"
             />
           </FormField>
-          <FormField htmlFor="paymentMethodId" label="Payment Method" required>
+          <FormField
+            htmlFor="paymentMethodId"
+            error={fieldErrors["paymentMethodId"]?.[0]}
+            label="Payment Method"
+            required
+          >
             <select
               className="input"
               id="paymentMethodId"
@@ -139,10 +165,11 @@ export function ExpenseCategoryForm({
   category?: { name: string; description: string | null };
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const fieldErrors = state.ok ? {} : (state.fieldErrors ?? {});
   return (
     <form action={formAction} className="card max-w-2xl space-y-5 p-6">
       <FormMessage result={state} />
-      <FormField htmlFor="name" label="Category name" required>
+      <FormField htmlFor="name" error={fieldErrors["name"]?.[0]} label="Category name" required>
         <input
           className="input"
           defaultValue={category?.name}
@@ -152,7 +179,7 @@ export function ExpenseCategoryForm({
           required
         />
       </FormField>
-      <FormField htmlFor="description" label="Description">
+      <FormField htmlFor="description" error={fieldErrors["description"]?.[0]} label="Description">
         <textarea
           className="input min-h-28"
           defaultValue={category?.description ?? ""}
@@ -177,6 +204,7 @@ export function VoidExpenseForm({
   action: (state: ActionResult, data: FormData) => Promise<ActionResult>;
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const fieldErrors = state.ok ? {} : (state.fieldErrors ?? {});
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="max-w-2xl">
@@ -209,7 +237,7 @@ export function VoidExpenseForm({
             The original record remains in history and is excluded from expense totals.
           </p>
           <FormMessage result={state} />
-          <FormField htmlFor="reason" label="Reason" required>
+          <FormField htmlFor="reason" error={fieldErrors["reason"]?.[0]} label="Reason" required>
             <textarea
               autoFocus
               className="input min-h-24"

@@ -18,6 +18,14 @@ Sale returns lock the original invoice and affected layers, restore unreturned o
 
 No new tables, browser database access, Data API grants, or security-definer functions are introduced. Trigger functions use invoker privileges and revoke PUBLIC execution. Existing Phase 1/2 SQL and runtime services remain intact. Development migration/integration acceptance is required before production deployment.
 
+## Implementation prompt corrections (2026-10-08)
+
+Partial unique index on `Purchase.supplierInvoiceRef` is managed via raw migration SQL (`purchase_supplier_invoice_ref_unique`) and is not reflected in `schema.prisma`. Migration `20261008100000_purchase_supplier_invoice_unique` enforces exact supplier/reference uniqueness for draft and posted purchases when the reference is non-null. Null references remain unrestricted. Existing duplicates must be reviewed before applying this migration; it does not rewrite or delete records.
+
+Migration `20261008100100_purchase_cost_rounding_tolerance` replaces the SQL-only `PurchaseLine_quantity_cost_valid` check to accept an absolute reconstruction difference of at most PKR 0.01 between `lineTotal` and rounded `quantity × unitCost`, matching server calculation validation. Quantity, unit cost and net total remain positive. The separate authoritative `lineTotal = grossAmount - lineDiscountAmount` check remains in force. Original applied migrations are unchanged; no historical amounts or cost layers are rewritten.
+
+Sale, sale-return and adjustment stock movements now record the validated document business date in `occurredAt` for new postings. Execution timestamps and the existing running-balance creation order remain unchanged.
+
 ## 1. Design goals
 
 The model prioritizes traceability, correct concurrent posting, historical accuracy, and a practical V1 scope. Supabase-managed PostgreSQL is the authoritative data store and Prisma is the only application ORM/database access path. The executable schema is in `prisma/schema.prisma`; SQL-only constraints in `prisma/sql/initial-integrity-constraints.sql` are incorporated into the reviewed initial migration. The supplement is not an independently applied migration.

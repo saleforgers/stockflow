@@ -56,10 +56,18 @@ export function purchaseLineAmount(
     );
   }
   const unitCost = lineTotal.div(validatedQuantity).toDecimalPlaces(4);
-  if (!roundMoney(validatedQuantity.times(unitCost)).equals(lineTotal)) {
+  if (unitCost.lessThanOrEqualTo(0)) {
     throw new ApplicationError(
       "VALIDATION_ERROR",
-      "Discount cannot be represented exactly at the product quantity and cost precision",
+      "Discounted unit cost must be greater than zero",
+    );
+  }
+  const reconstructed = roundMoney(validatedQuantity.times(unitCost));
+  const delta = reconstructed.minus(lineTotal).abs();
+  if (delta.greaterThan(new Decimal("0.01"))) {
+    throw new ApplicationError(
+      "VALIDATION_ERROR",
+      `Unit cost rounding mismatch exceeds PKR 0.01 tolerance (delta: ${delta.toFixed(4)}). Check quantity and discount.`,
     );
   }
   return {

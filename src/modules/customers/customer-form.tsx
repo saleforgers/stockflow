@@ -20,11 +20,12 @@ export function CustomerForm({
   customer?: CustomerValue;
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const fieldErrors = state.ok ? {} : (state.fieldErrors ?? {});
   return (
     <form action={formAction} className="card max-w-3xl space-y-5 p-6">
       <FormMessage result={state} />
       <div className="grid gap-5 sm:grid-cols-2">
-        <FormField htmlFor="name" label="Customer name" required>
+        <FormField htmlFor="name" error={fieldErrors["name"]?.[0]} label="Customer name" required>
           <input
             className="input"
             defaultValue={customer?.name}
@@ -34,7 +35,7 @@ export function CustomerForm({
             required
           />
         </FormField>
-        <FormField htmlFor="phone" label="Phone">
+        <FormField htmlFor="phone" error={fieldErrors["phone"]?.[0]} label="Phone">
           <input
             className="input"
             defaultValue={customer?.phone ?? ""}
@@ -43,7 +44,7 @@ export function CustomerForm({
             name="phone"
           />
         </FormField>
-        <FormField htmlFor="email" label="Email">
+        <FormField htmlFor="email" error={fieldErrors["email"]?.[0]} label="Email">
           <input
             className="input"
             defaultValue={customer?.email ?? ""}
@@ -54,7 +55,7 @@ export function CustomerForm({
           />
         </FormField>
       </div>
-      <FormField htmlFor="address" label="Address">
+      <FormField htmlFor="address" error={fieldErrors["address"]?.[0]} label="Address">
         <textarea
           className="input min-h-24"
           defaultValue={customer?.address ?? ""}
@@ -63,7 +64,7 @@ export function CustomerForm({
           name="address"
         />
       </FormField>
-      <FormField htmlFor="notes" label="Notes">
+      <FormField htmlFor="notes" error={fieldErrors["notes"]?.[0]} label="Notes">
         <textarea
           className="input min-h-24"
           defaultValue={customer?.notes ?? ""}

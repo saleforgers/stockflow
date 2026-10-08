@@ -69,8 +69,18 @@ describe("client demo inventory and reporting acceptance", () => {
     const opening = { ...command("0", "5", "Opening Stock"), date: "2036-01-16" };
     const results = await Promise.all([adjustStock(opening, actor), adjustStock(opening, actor)]);
     expect(results[0].id).toBe(results[1].id);
+    const openingMovements = await db.stockMovement.findMany({
+      where: { adjustmentLine: { stockAdjustmentId: results[0].id } },
+    });
+    expect(openingMovements).toHaveLength(1);
+    expect(openingMovements[0]!.occurredAt.toISOString()).toBe("2036-01-16T00:00:00.000Z");
     await adjustStock(command("5", "8", "Count Correction", "20"), actor);
     await adjustStock({ ...command("8", "4"), reason: "Damage" }, actor);
+    const damageMovements = await db.stockMovement.findMany({
+      where: { productId, movementType: "DAMAGED" },
+    });
+    expect(damageMovements).toHaveLength(1);
+    expect(damageMovements[0]!.occurredAt.toISOString()).toBe(`${date}T00:00:00.000Z`);
     const stock = (await listStock({ page: 1, productId })).items[0]!;
     expect(stock.onHand.toString()).toBe("4");
     expect(stock.value.toString()).toBe("70");

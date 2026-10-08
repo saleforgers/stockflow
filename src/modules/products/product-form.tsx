@@ -37,6 +37,7 @@ export function ProductForm({
   currentStock?: string;
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const fieldErrors = state.ok ? {} : (state.fieldErrors ?? {});
   const [specifications, setSpecifications] = useState(
     product?.specifications.length ? product.specifications : [{ key: "", value: "" }],
   );
@@ -45,7 +46,13 @@ export function ProductForm({
     <form action={formAction} className="card max-w-4xl space-y-6 p-6">
       <FormMessage result={state} />
       <div className="grid gap-5 sm:grid-cols-2">
-        <FormField htmlFor="sku" label="SKU" hint="Stored in normalized uppercase form." required>
+        <FormField
+          htmlFor="sku"
+          error={fieldErrors["sku"]?.[0]}
+          label="SKU"
+          hint="Stored in normalized uppercase form."
+          required
+        >
           <input
             className="input"
             defaultValue={product?.sku}
@@ -55,7 +62,7 @@ export function ProductForm({
             required
           />
         </FormField>
-        <FormField htmlFor="name" label="Product name" required>
+        <FormField htmlFor="name" error={fieldErrors["name"]?.[0]} label="Product name" required>
           <input
             className="input"
             defaultValue={product?.name}
@@ -65,7 +72,12 @@ export function ProductForm({
             required
           />
         </FormField>
-        <FormField htmlFor="categoryId" label="Category" required>
+        <FormField
+          htmlFor="categoryId"
+          error={fieldErrors["categoryId"]?.[0]}
+          label="Category"
+          required
+        >
           <select
             className="input"
             defaultValue={product?.categoryId ?? ""}
@@ -83,7 +95,12 @@ export function ProductForm({
             ))}
           </select>
         </FormField>
-        <FormField htmlFor="inventoryUnitId" label="Inventory unit" required>
+        <FormField
+          htmlFor="inventoryUnitId"
+          error={fieldErrors["inventoryUnitId"]?.[0]}
+          label="Inventory unit"
+          required
+        >
           <select
             className="input"
             defaultValue={product?.inventoryUnitId ?? ""}
@@ -101,7 +118,11 @@ export function ProductForm({
             ))}
           </select>
         </FormField>
-        <FormField htmlFor="preferredSupplierId" label="Preferred supplier">
+        <FormField
+          htmlFor="preferredSupplierId"
+          error={fieldErrors["preferredSupplierId"]?.[0]}
+          label="Preferred supplier"
+        >
           <select
             className="input"
             defaultValue={product?.preferredSupplierId ?? ""}
@@ -118,6 +139,7 @@ export function ProductForm({
         </FormField>
         <FormField
           htmlFor="lowStockThreshold"
+          error={fieldErrors["lowStockThreshold"]?.[0]}
           label="Low-stock threshold"
           hint="Validated against the selected unit's decimal scale."
           required
@@ -133,6 +155,7 @@ export function ProductForm({
         </FormField>
         <FormField
           htmlFor="defaultPurchasePrice"
+          error={fieldErrors["defaultPurchasePrice"]?.[0]}
           label="Default purchase price (PKR)"
           hint="Optional convenience value; not historical cost."
         >
@@ -147,6 +170,7 @@ export function ProductForm({
         {!product ? (
           <FormField
             htmlFor="openingStockQuantity"
+            error={fieldErrors["openingStockQuantity"]?.[0]}
             label="Opening Stock Quantity"
             hint="Optional. Uses the Default Purchase Price as opening unit cost; a positive price is required when opening stock is greater than zero."
           >
@@ -162,6 +186,7 @@ export function ProductForm({
         ) : null}
         <FormField
           htmlFor="defaultSellingPrice"
+          error={fieldErrors["defaultSellingPrice"]?.[0]}
           label="Default selling price (PKR)"
           hint="Optional convenience value; invoice lines later preserve actual prices."
         >
@@ -193,7 +218,7 @@ export function ProductForm({
           </div>
         ) : null}
       </div>
-      <FormField htmlFor="description" label="Description">
+      <FormField htmlFor="description" error={fieldErrors["description"]?.[0]} label="Description">
         <textarea
           className="input min-h-28"
           defaultValue={product?.description ?? ""}

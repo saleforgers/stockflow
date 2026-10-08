@@ -5,12 +5,14 @@ export function FormField({
   htmlFor,
   hint,
   required,
+  error,
   children,
 }: {
   label: string;
   htmlFor: string;
   hint?: string;
   required?: boolean;
+  error?: string;
   children: ReactNode;
 }) {
   return (
@@ -24,7 +26,11 @@ export function FormField({
         ) : null}
       </label>
       {children}
-      {hint ? (
+      {error ? (
+        <p className="text-xs text-rose-600" id={`${htmlFor}-error`} role="alert">
+          {error}
+        </p>
+      ) : hint ? (
         <p
           className="flex items-start gap-1.5 text-xs leading-5 text-slate-500"
           id={`${htmlFor}-hint`}

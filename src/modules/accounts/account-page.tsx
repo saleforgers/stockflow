@@ -96,8 +96,8 @@ export async function AccountPage({
               <th>Date</th>
               <th>Reference</th>
               <th>Description</th>
-              <th>{customer ? "Invoice / Debit" : "Purchase / Debit"}</th>
-              <th>Payment / Credit</th>
+              <th>{customer ? "Invoice / Debit" : "Purchase / Credit"}</th>
+              <th>{customer ? "Payment / Credit" : "Payment / Debit"}</th>
               <th>Running Balance</th>
             </tr>
           </thead>

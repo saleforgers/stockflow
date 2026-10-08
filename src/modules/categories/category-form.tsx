@@ -18,10 +18,11 @@ export function CategoryForm({
   parents: Array<{ id: string; name: string }>;
 }) {
   const [state, formAction] = useActionState(action, INITIAL_ACTION_RESULT);
+  const fieldErrors = state.ok ? {} : (state.fieldErrors ?? {});
   return (
     <form action={formAction} className="card max-w-2xl space-y-5 p-6">
       <FormMessage result={state} />
-      <FormField htmlFor="name" label="Category name" required>
+      <FormField htmlFor="name" error={fieldErrors["name"]?.[0]} label="Category name" required>
         <input
           className="input"
           defaultValue={category?.name}
@@ -31,7 +32,12 @@ export function CategoryForm({
           required
         />
       </FormField>
-      <FormField htmlFor="slug" label="Slug" hint="Leave blank to generate it from the name.">
+      <FormField
+        htmlFor="slug"
+        error={fieldErrors["slug"]?.[0]}
+        label="Slug"
+        hint="Leave blank to generate it from the name."
+      >
         <input
           className="input"
           defaultValue={category?.slug}
@@ -40,7 +46,7 @@ export function CategoryForm({
           name="slug"
         />
       </FormField>
-      <FormField htmlFor="parentId" label="Parent category">
+      <FormField htmlFor="parentId" error={fieldErrors["parentId"]?.[0]} label="Parent category">
         <select
           className="input"
           defaultValue={category?.parentId ?? ""}
@@ -55,7 +61,7 @@ export function CategoryForm({
           ))}
         </select>
       </FormField>
-      <FormField htmlFor="description" label="Description">
+      <FormField htmlFor="description" error={fieldErrors["description"]?.[0]} label="Description">
         <textarea
           className="input min-h-28"
           defaultValue={category?.description ?? ""}

@@ -4,19 +4,27 @@ import Decimal from "decimal.js";
 import { INITIAL_ACTION_RESULT } from "@/lib/actions/action-result";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ProductSelector } from "@/components/product-selector";
 import { adjustmentAction } from "./actions";
 export function AdjustmentForm({
   products,
   date,
   requestKey,
 }: {
-  products: { id: string; name: string; quantity: string; unit: string }[];
+  products: { id: string; name: string; sku: string; quantity: string; unit: string }[];
   date: string;
   requestKey: string;
 }) {
   const [state, action] = useActionState(adjustmentAction, INITIAL_ACTION_RESULT);
   const [productId, setProduct] = useState("");
   const [actual, setActual] = useState("");
+  const productOptions = products.map((p) => ({
+    id: p.id,
+    name: p.name,
+    sku: p.sku,
+    stock: p.quantity,
+    inventoryUnit: { code: p.unit },
+  }));
   const p = products.find((p) => p.id === productId);
   let difference = "—";
   try {
@@ -43,25 +51,20 @@ export function AdjustmentForm({
       className="card space-y-5 p-6"
     >
       <FormMessage result={state} />
-      <label className="block">
-        Product
-        <select
-          className="input"
-          required
+      <div className="space-y-1">
+        <label className="block text-sm font-medium" htmlFor="product-select">
+          Product
+        </label>
+        <ProductSelector
+          id="product-select"
+          products={productOptions}
           value={productId}
-          onChange={(e) => {
-            setProduct(e.target.value);
+          onChange={(id) => {
+            setProduct(id);
             setActual("");
           }}
-        >
-          <option value="">Select a product</option>
-          {products.map((p) => (
-            <option value={p.id} key={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </label>
+        />
+      </div>
       <p>
         Current quantity:{" "}
         <strong>
