@@ -48,7 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-backup
-          docker run --rm -e DIRECT_URL postgres:17 sh -c 'exec pg_dump "$DIRECT_URL" --schema=public --no-owner --no-acl --format=custom' |
+          node scripts/dump-release-database.mjs |
             node scripts/encrypt-release-backup.mjs release-backup/public-schema.dump.encrypted
 
       - name: Preserve encrypted backup before migration
